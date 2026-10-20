@@ -35,7 +35,7 @@ run=$out/run
 
 # The simulators, at the commits this harness was tested with (LoopKit/g7sim and LoopKit/pod with
 # the changes proposed upstream; g7sim builds ImpossiBLE with its own patches).
-G7SIM=https://github.com/jeremybarnum/g7sim; G7SIM_COMMIT=d6d5ef1
+G7SIM=https://github.com/jeremybarnum/g7sim; G7SIM_COMMIT=3f43670
 POD=https://github.com/jeremybarnum/pod;     POD_COMMIT=ab76d1a
 
 [ -f "$here/.sims" ] && . "$here/.sims"
