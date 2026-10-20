@@ -6,14 +6,14 @@ TEST=repro
 . "$(dirname "$0")/lib.sh"
 set -u
 before=$(ls ~/Library/Logs/DiagnosticReports/ | grep -c '^WatchApp')
-for i in 1 2 3; do
+for i in 1 2 3 4; do
 	say "round $i"
 	reset
 	s=$(now); start_loan "$s"
-	# A loan with doses behind it, as the one that crashed: a reading, and the cycle it starts.
-	r=$(now); wait_reading "$r" 400
-	wait_for watch "$r" 'CYCLE VERDICT computed=ok' 120
-	sleep 5
+	# As before the crash: the watch app relaunched during the loan, and resumed it.
+	q=$(now); sim quit watch; sleep 3; sim launch watch
+	wait_for watch "$q" 'RESUMED' 60
+	sleep ${REPRO_WAIT:-70}
 	tb=$(now)
 	take_back
 	wait_for watch "$tb" 'CLOSED — ' 60
