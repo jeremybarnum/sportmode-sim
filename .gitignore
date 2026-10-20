@@ -1,3 +1,4 @@
 build/
 .sims
 .DS_Store
+ui/SportModeUI.xcodeproj/

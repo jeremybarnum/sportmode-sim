@@ -1,0 +1,28 @@
+name: SportModeUI
+options:
+  bundleIdPrefix: org.loopkit.sportmode-sim
+settings:
+  base:
+    CODE_SIGN_IDENTITY: "-"
+    CODE_SIGN_STYLE: Manual
+    DEVELOPMENT_TEAM: ""
+    GENERATE_INFOPLIST_FILE: YES
+    SWIFT_VERSION: "5.0"
+targets:
+  PhoneDriver:
+    type: bundle.ui-testing
+    platform: iOS
+    deploymentTarget: "17.0"
+    sources: [Driver.swift]
+  WatchDriver:
+    type: bundle.ui-testing
+    platform: watchOS
+    deploymentTarget: "10.0"
+    sources: [Driver.swift]
+schemes:
+  PhoneDriver:
+    build: {targets: {PhoneDriver: [test]}}
+    test: {targets: [PhoneDriver]}
+  WatchDriver:
+    build: {targets: {WatchDriver: [test]}}
+    test: {targets: [WatchDriver]}

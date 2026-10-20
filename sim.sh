@@ -22,7 +22,8 @@
 #   sim.sh quit phone|watch end the app (a force quit)
 #   sim.sh range            what is out of range now
 #
-# Environment: PHONE, WATCH (Simulator UDIDs; default: the pair `sims` made), WORKSPACE (a
+# Environment: PHONE_SIM, WATCH_SIM (Simulator UDIDs; default: the pair `sims` made; zsh keeps
+# WATCH for itself), WORKSPACE (a
 # LoopWorkspace checkout, for `apps`), APPS (a Build/Products directory, default build/dd's),
 # MUX_TRACE=1 (the mux logs every request and event for a peripheral).
 set -eu
@@ -37,8 +38,8 @@ G7SIM=https://github.com/jeremybarnum/g7sim; G7SIM_COMMIT=82add04
 POD=https://github.com/jeremybarnum/pod;     POD_COMMIT=ab76d1a
 
 [ -f "$here/.sims" ] && . "$here/.sims"
-PHONE=${PHONE:-${SIMS_PHONE:-}}
-WATCH=${WATCH:-${SIMS_WATCH:-}}
+PHONE=${PHONE_SIM:-${SIMS_PHONE:-}}
+WATCH=${WATCH_SIM:-${SIMS_WATCH:-}}
 APPS=${APPS:-$out/dd/Build/Products}
 PHONE_APP=$APPS/Debug-iphonesimulator/Loop.app
 WATCH_APP=$APPS/Debug-watchsimulator/WatchApp.app
@@ -51,7 +52,7 @@ LINK=/tmp/sportmode-sim-link   # SimLink's control file: "down" parts the phone 
 export SIMLINK_QUEUE=/tmp/sportmode-sim-queue
 
 need_sims() {
-	[ -n "$PHONE" ] && [ -n "$WATCH" ] || { echo "no Simulators: run 'sim.sh sims', or set PHONE and WATCH" >&2; exit 2; }
+	[ -n "$PHONE" ] && [ -n "$WATCH" ] || { echo "no Simulators: run 'sim.sh sims', or set PHONE_SIM and WATCH_SIM" >&2; exit 2; }
 }
 
 # Bundle ids from the built apps: they follow the workspace's own configuration.
@@ -202,7 +203,9 @@ pod() {
 watch() {
 	need_sims
 	case "$1" in
-	off) xcrun simctl shutdown "$WATCH"; mkdir -p "$run"; touch "$run/watch-off"; link ;;
+	off) xcrun simctl shutdown "$WATCH"; mkdir -p "$run"; touch "$run/watch-off"; link
+		# A UI driver on the watch ends with it; ui.sh attaches a new one at its next command.
+		[ -f /tmp/sportmode-ui/watch.pid ] && kill "$(cat /tmp/sportmode-ui/watch.pid)" 2>/dev/null || true ;;
 	# The link comes up with the watch app, not with the watch: the paired Simulators accept a live
 	# message for an app not yet running and lose it, where a device would fail it to the queue.
 	on) xcrun simctl boot "$WATCH" 2>/dev/null || true
@@ -228,6 +231,9 @@ logof() {
 	*) echo "log phone|watch|pod|g7|mux [lines]" >&2; exit 2 ;;
 	esac
 }
+
+# Sourced by ui.sh for the settings and helpers above.
+[ -n "${SIM_SOURCED:-}" ] && return 0
 
 case "${1:-}" in
 build) build ;;

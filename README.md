@@ -57,10 +57,28 @@ Start wait for the watch to read the sensor and log `dormant grant refreshed`.
 Logs: `log phone|watch|pod|g7|mux [lines]`, `since phone|watch HH:MM:SS [regex]`, and
 `./check.sh T<n> HH:MM:SS` for a test's lines. `MUX_TRACE=1 ./sim.sh start` logs every request.
 
+## Taps without a person (trial)
+
+`ui.sh` presses buttons in the apps by the labels on screen, through a UI test that attaches to the
+running app (`ui/Driver.swift`; needs `xcodegen`). `./ui.sh build` once, then for example:
+
+```sh
+./ui.sh watch tap "Start Sport Mode"
+./ui.sh watch wait 60 End
+./ui.sh phone tap "Sport Mode Active" && ./ui.sh phone tap "Reclaim Now"
+./ui.sh watch double "Turn Digital"     # confirms a watch bolus (the bench's double tap)
+./ui.sh phone systype '0000\n'          # the passcode a phone bolus asks for
+```
+
+A driver attaches in 10–17 s and restarts by itself after `watch off`; a tap takes under a second.
+The crown cannot be turned from a test in the Simulator for Loop's bolus confirmation, so the bench's
+double tap stays. A step whose screen changes under it (a sheet closing) can end the driver; the next
+command attaches a new one.
+
 ## What it does not cover
 
-- Taps go through the Simulator window; the first tap after a page change or after the watch wakes is
-  often swallowed: check the log and tap again.
+- Without `ui.sh`, taps go through the Simulator window; the first tap after a page change or after the
+  watch wakes is often swallowed: check the log and tap again.
 - A backgrounded app is not woken by simulated Bluetooth, so a locked phone (T16) and the watch app's
   background life are not reproduced. The G7 simulator's suspender would do it, one per app.
 - No clock control: T9 (6 hours) needs a real wait.
