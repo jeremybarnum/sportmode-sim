@@ -12,7 +12,8 @@ if [ -f "$lock" ] && kill -0 "$(cat "$lock" 2>/dev/null)" 2>/dev/null; then
 	echo "another run is active (pid $(cat "$lock")): wait for it, or stop it" >&2; exit 2
 fi
 echo $$ >"$lock"
-trap 'rm -f "$lock"' EXIT
+# The tap drivers are two test runners that stay attached to the apps; a run ends them with itself.
+trap 'rm -f "$lock"; "$here/../ui.sh" stop phone 2>/dev/null; "$here/../ui.sh" stop watch 2>/dev/null' EXIT
 dir=$here/../build/results/$(date +%Y%m%d-%H%M%S)
 mkdir -p "$dir"
 [ $# -gt 0 ] || set -- $(ls "$here" | sed -n 's/^\(T[0-9]*\)\.sh$/\1/p' | sort -t T -k 2 -n)
