@@ -174,6 +174,16 @@ tap_start() {
 	abort "the watch did not take the Start tap"
 }
 
+# A sheet left open on the watch (a list, the bolus screen) hides the pages.
+watch_close_sheets() {
+	local i
+	for i in 1 2 3; do
+		shows watch close-sheet || return 0
+		"$UI" watch tap close-sheet >/dev/null 2>&1 || return 0
+		sleep 1
+	done
+}
+
 # The main page with Start on it; a just-launched app can take a few seconds to show its pages.
 watch_start_shown() {
 	local i
@@ -261,8 +271,7 @@ reset() {
 	running watch || "$SIM" launch watch >/dev/null
 	drivers
 	phone_home
-	# A sheet left open on the watch (a list, the bolus screen) hides the pages.
-	while shows watch close-sheet; do "$UI" watch tap close-sheet >/dev/null 2>&1 || break; sleep 1; done
+	watch_close_sheets
 	watch_main
 	for i in 1 2 3; do
 		shows watch "Start Sport Mode" && { watch_reads_sensor; return 0; }
@@ -331,7 +340,7 @@ phone_home() {
 	local i
 	for i in 1 2 3 4; do
 		dismiss_alert
-		"$UI" phone wait 0 chartTitleText_Glucose >/dev/null 2>&1 && return 0
+		"$UI" phone wait 0 glucoseHUDView >/dev/null 2>&1 && return 0
 		if shows phone BackButton; then "$UI" phone tap BackButton >/dev/null 2>&1
 		elif shows phone Cancel; then "$UI" phone tap Cancel >/dev/null 2>&1
 		elif shows phone Done; then "$UI" phone tap Done >/dev/null 2>&1
@@ -339,7 +348,7 @@ phone_home() {
 		fi
 		sleep 1
 	done
-	"$UI" phone wait 5 chartTitleText_Glucose >/dev/null 2>&1 || say "the phone is not on its status screen" >&2
+	"$UI" phone wait 5 glucoseHUDView >/dev/null 2>&1 || say "the phone is not on its status screen" >&2
 }
 
 # Dismiss the phone's alert, if one is up.

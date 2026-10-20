@@ -25,7 +25,8 @@ ui watch swipeleft ", 13 g"
 d=$(now)
 ui watch tap Delete
 wait_for watch "$d" 'carb DELETE' 30
-"$UI" watch tap Close >/dev/null 2>&1 || "$UI" watch swipe right >/dev/null 2>&1 || true
+sleep 1
+watch_close_sheets
 
 say "End on the watch"
 watch_main
