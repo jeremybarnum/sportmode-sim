@@ -4,6 +4,9 @@
 # and kept in summary.txt. The simulators and both apps must be running (sim.sh start, launch).
 set -u
 here=$(cd "$(dirname "$0")" && pwd)
+# One run at a time: two share one tap driver, one mux and one Simulator pair, and corrupt each other.
+others=$(pgrep -f "tests/run.sh" | grep -vx "$$" | grep -vx "$PPID" || true)
+[ -z "$others" ] || { echo "another run is active (pid $others): wait for it, or stop it" >&2; exit 2; }
 dir=$here/../build/results/$(date +%Y%m%d-%H%M%S)
 mkdir -p "$dir"
 [ $# -gt 0 ] || set -- $(ls "$here" | sed -n 's/^\(T[0-9]*\)\.sh$/\1/p' | sort -t T -k 2 -n)
