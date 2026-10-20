@@ -32,7 +32,9 @@ wait_for watch "$on" 'REVOKED|stood aside' 300
 
 say "Checks"
 expect watch "$on" 'RESUMED' "watch resumed"
-expect watch "$on" 'statusReport sent' "watch asked the phone first"
+# The watch asks before looping, unless the phone's queued stop, delivered at launch, stood it aside
+# before it needed to; either way nothing doses before the answer (the next check).
+expect watch "$on" 'statusReport sent|REVOKED' "watch asked the phone first, or the phone's stop landed first"
 expect watch "$on" 'REVOKED|stood aside' "watch stood aside"
 expect_between_none watch "$on" 'RESUMED' 'REVOKED|stood aside' 'dosemath|enacting' "no dose before the phone's answer"
 verdict

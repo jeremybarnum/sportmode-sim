@@ -139,8 +139,13 @@ shows() { "$UI" "$1" wait 0 "$2" >/dev/null 2>&1; }
 
 # The phone takes the pod back from the watch: the status cell, then Reclaim Now.
 take_back() {
-	dismiss_alert
-	ui phone "tap~" "Sport Mode"
+	local i
+	for i in 1 2 3; do
+		dismiss_alert
+		ui phone "tap~" "Sport Mode"
+		"$UI" phone wait 6 "Reclaim Now" >/dev/null 2>&1 && break
+		say "the take-back sheet did not open; tapping the cell again" >&2
+	done
 	ui phone tap "Reclaim Now"
 }
 
