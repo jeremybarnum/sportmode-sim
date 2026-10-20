@@ -53,13 +53,13 @@ when the records arrive.
 **T5.** During a loan, `pod away`, take back on the phone. `pod back`, take back again.
 Pass: first `take-back REFUSED — no pod link …; loan unchanged`, "Couldn't Reach the Pod"; then as T3.
 
-**T6.** `phone away`. Start on the watch, Start Anyway. Two readings. `phone back`. Hand Back on the watch at
-"iPhone Is Back". Pass: watch `SEIZE confirmed`, `seized loan ACTIVE`, the reunion prompt; phone `[seize] RETRO-ACK`,
+**T6.** `phone away`. Start on the watch, Start Anyway. Two readings. `phone back`. End on the watch.
+Pass: watch `SEIZE confirmed`, `seized loan ACTIVE`; phone `[seize] RETRO-ACK`,
 `reconcile[AUTHORITATIVE]` within ±0.20 U, `temp cancelled`.
 
 **T7.** `phone away`. Offline start on the watch; bolus 0.5 U on the watch. Short: wait 3 minutes, `phone back`,
-Hand Back at "iPhone Is Back". Full: `watch off` after the bolus, `phone back`, wait one reading, `watch on`, Hand
-Back when asked. Pass: phone `estimate BOOKED` at its first reading if it reads the pod before it hears from the watch
+End on the watch. Full: `watch off` after the bolus, `phone back`, wait one reading, `watch on`, End on
+the watch. Pass: phone `estimate BOOKED` at its first reading if it reads the pod before it hears from the watch
 (standing aside and booking nothing is also right); next reading near zero; at the hand-back `RETRO-ACK`, `estimate
 RETIRED`, final check within ±0.20 U.
 
