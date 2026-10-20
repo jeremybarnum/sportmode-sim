@@ -16,8 +16,8 @@ start=$(now)
 offline_start "$start"
 watch_bolus 0.5
 
-say "Three minutes; then the phone comes back and reads"
-sleep 180
+say "Three minutes (scaled); then the phone comes back and reads"
+tsleep 180
 sim phone back
 back=$(now)
 wait_reading "$back" 400

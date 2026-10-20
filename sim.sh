@@ -22,8 +22,9 @@
 #   sim.sh quit phone|watch end the app (a force quit)
 #   sim.sh range            what is out of range now
 #
-# Environment: PHONE_SIM, WATCH_SIM (Simulator UDIDs; default: the pair `sims` made; zsh keeps
-# WATCH for itself), WORKSPACE (a
+# Environment: TIME_SCALE=N (faster runs: readings every 300/N s and the apps' waits divided by N;
+# set at `start` and kept for `launch`), PHONE_SIM, WATCH_SIM (Simulator UDIDs; default: the pair
+# `sims` made; zsh keeps WATCH for itself), WORKSPACE (a
 # LoopWorkspace checkout, for `apps`), APPS (a Build/Products directory, default build/dd's),
 # MUX_TRACE=1 (the mux logs every request and event for a peripheral).
 set -eu
@@ -110,13 +111,17 @@ start() {
 	fresh=${1:-}
 	podfresh=$fresh; [ "$fresh" = -fresh-pod ] && { fresh=; podfresh=-fresh; }
 	mkdir -p "$run"
+	# A faster clock: the sensor reads every 300/N s, and the apps (launched with the same N)
+	# divide their own waits by it. Kept with the run so launch agrees with start.
+	scale=${TIME_SCALE:-1}; echo "$scale" >"$run/time-scale"
+	interval=; [ "$scale" -gt 1 ] 2>/dev/null && interval="-interval $((300 / scale))s"
 	started pod-sim || { nohup "$out/pod-sim" -transport impossible -socket $POD_SOCK -api $POD_API \
 		-state "$run/pod-state.toml" ${podfresh:+-fresh} >"$run/pod.log" 2>&1 & }
 	# The stand-in sensor G7SensorKit offers in the Simulator, so "scan" and manual entry both find it.
 	# In a subshell for its working directory, which exec hands to the simulator, so nothing is left
 	# holding the terminal.
 	started g7-sim || { (cd "$run" && exec nohup "$out/g7-sim" -transport impossible -socket $G7_SOCK -api $G7_API \
-		${fresh:+-fresh -code 4321 -serial 7810293746}) >"$run/g7.log" 2>&1 </dev/null & }
+		$interval ${fresh:+-fresh -code 4321 -serial 7810293746}) >"$run/g7.log" 2>&1 </dev/null & }
 	sleep 1
 	# The mux refuses the socket if another provider (ImpossiBLE's menu bar app?) holds it; its log says.
 	started impossible-mux || { nohup "$out/impossible-mux" -api $MUX_API $G7_SOCK $POD_SOCK >"$run/mux.log" 2>&1 & }
@@ -166,8 +171,9 @@ launch() {
 	*) echo "launch phone|watch" >&2; exit 2 ;;
 	esac
 	xcrun simctl terminate "$dev" "$id" 2>/dev/null || true
+	scale=${TIME_SCALE:-$(cat "$run/time-scale" 2>/dev/null || echo 1)}
 	SIMCTL_CHILD_DYLD_INSERT_LIBRARIES=$lib SIMCTL_CHILD_SIMLINK_FILE=$LINK SIMCTL_CHILD_SIMLINK_QUEUE=$SIMLINK_QUEUE \
-		xcrun simctl launch "$dev" "$id"
+		SIMCTL_CHILD_SPORTMODE_TIME_SCALE=$scale xcrun simctl launch "$dev" "$id"
 }
 
 quit() {

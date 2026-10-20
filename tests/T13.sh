@@ -23,7 +23,7 @@ sim pod back
 sim phone back
 back=$(now)
 wait_reading "$back" 400
-sleep 60
+tsleep 60
 
 say "A normal Start"
 "$UI" watch wait 60 "Start Sport Mode" >/dev/null 2>&1 || abort "the watch shows no Start after the failed takeover"

@@ -107,6 +107,9 @@ verdict() {
 # --- Steps shared by the tests ---
 
 RUN=$root/build/run
+# The run's time scale (sim.sh start TIME_SCALE=N): a wait the test itself chooses is divided by it.
+SCALE=$(cat "$RUN/time-scale" 2>/dev/null || echo 1)
+tsleep() { sleep $(awk -v s="$1" -v n="$SCALE" 'BEGIN { v = int(s / n); print (v < 1 ? 1 : v) }'); }
 
 # Wait for the sensor simulator's next reading(s) after a time (a reading paces both apps' loops).
 wait_reading() { # since seconds [count]
