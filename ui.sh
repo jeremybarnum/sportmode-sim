@@ -4,6 +4,7 @@
 #
 #   ui.sh build                      build the two drivers (once)
 #   ui.sh start phone|watch          attach a driver to the running app
+#   ui.sh ensure phone|watch         the same, unless one is attached and answering
 #   ui.sh stop phone|watch
 #   ui.sh phone|watch <command>      tap <label> · tap~ <text> · wait <s> <label> · gone <s> <label>
 #                                    swipe left|right|up|down · type <text> · crown <turns>
@@ -82,7 +83,8 @@ send() { # side command...
 case "${1:-}" in
 build) build ;;
 start) start "${2:-}" ;;
+ensure) alive "${2:-}" || start "${2:-}" ;;
 stop) stop "${2:-}" ;;
 phone | watch) s=$1; shift; send "$s" "$@" ;;
-*) sed -n 2,11p "$0" | sed 's/^# \{0,1\}//'; exit 2 ;;
+*) sed -n 2,12p "$0" | sed 's/^# \{0,1\}//'; exit 2 ;;
 esac

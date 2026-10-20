@@ -6,7 +6,7 @@ with the phone and the watch going out of reach, the watch shutting down and the
 reach all done by commands. [TESTS.md](TESTS.md) has each test's steps.
 
 It is built on LoopKit's pod simulator and G7 simulator and the ImpossiBLE Bluetooth shim, with
-changes proposed back to each ([PR-DRAFTS.md](PR-DRAFTS.md)):
+changes to each, on these forks:
 
 | Piece | What it adds | Where |
 |---|---|---|
@@ -29,13 +29,13 @@ WORKSPACE=~/src/LoopWorkspace ./sim.sh apps   # builds Loop's phone and watch ap
 ./sim.sh launch phone
 ```
 
-`WORKSPACE` is a LoopWorkspace checkout with Sport Mode: `jeremybarnum/LoopWorkspace` branch
-`SportMode-bench`. Two things on the Loop side that a run needs:
-- A watch bolus is confirmed by turning the crown, which the Simulator has none of. The bench branch
-  confirms it with a double tap in Simulator builds only.
-- In the Simulator, OmnipodKit faked some pod operations whenever it ran there, even with the simulated
-  pod. With the fix, it fakes them only when there is no simulated pod. The fix is not yet on the branch;
-  without it, a hand-back's temp cancel sends nothing to the pod.
+`WORKSPACE` is a LoopWorkspace checkout with Sport Mode, branch `sim-testing` of
+`jeremybarnum/LoopWorkspace` (`git clone --recurse-submodules -b sim-testing …`). It is Sport Mode's
+build with two changes for the Simulator only:
+- A watch bolus is confirmed by turning the crown, which a test cannot do on that screen in the
+  Simulator; a double tap confirms it in Simulator builds.
+- OmnipodKit fakes pod operations in the Simulator only when no simulated pod answers. Without this, a
+  hand-back's temp cancel would send nothing to the simulated pod.
 
 **Onboard the phone once** (the Simulators keep it): long-press the logo on Welcome to skip the setup,
 then in Settings add the G7 sensor (code 4321) and the Omnipod DASH pod (pair, prime, insert). A bolus
@@ -66,14 +66,20 @@ running app (`ui/Driver.swift`; needs `xcodegen`). `./ui.sh build` once, then fo
 ./ui.sh watch tap "Start Sport Mode"
 ./ui.sh watch wait 60 End
 ./ui.sh phone tap "Sport Mode Active" && ./ui.sh phone tap "Reclaim Now"
-./ui.sh watch double "Turn Digital"     # confirms a watch bolus (the bench's double tap)
+./ui.sh watch double "Turn Digital"     # confirms a watch bolus (the Simulator's double tap)
 ./ui.sh phone systype '0000\n'          # the passcode a phone bolus asks for
 ```
 
 A driver attaches in 10–17 s and restarts by itself after `watch off`; a tap takes under a second.
-The crown cannot be turned from a test in the Simulator for Loop's bolus confirmation, so the bench's
+The crown cannot be turned from a test in the Simulator for Loop's bolus confirmation, so the
 double tap stays. A step whose screen changes under it (a sheet closing) can end the driver; the next
 command attaches a new one.
+
+## Tests without a person
+
+`tests/T<n>.sh` runs a bench test start to finish: the taps, the situations, the waits on the apps'
+logs, and the checks of the test's pass lines, ending in PASS or FAIL. `tests/run.sh T1 T3` runs
+several in a row and keeps each one's output under `build/results/`. Written so far: T1, T3.
 
 ## What it does not cover
 

@@ -90,9 +90,12 @@ build() {
 # device types and runtimes installed, unless PHONE_TYPE, WATCH_TYPE, PHONE_RUNTIME, WATCH_RUNTIME say.
 sims() {
 	if [ -n "${SIMS_PHONE:-}" ]; then echo "already made: phone $SIMS_PHONE, watch $SIMS_WATCH (.sims)"; return; fi
-	newest() { xcrun simctl list "$1" -j | python3 -c "import json,sys; v=[x for x in json.load(sys.stdin)['$1'] if '$2' in x['identifier'] and x.get('isAvailable',True)]; print(v[-1]['identifier'])"; }
-	pt=${PHONE_TYPE:-$(newest devicetypes iPhone)}; wt=${WATCH_TYPE:-$(newest devicetypes Watch)}
-	pr=${PHONE_RUNTIME:-$(newest runtimes iOS)}; wr=${WATCH_RUNTIME:-$(newest runtimes watchOS)}
+	# The newest runtime of a platform, and the newest model of a family it supports (both lists
+	# run newest-first).
+	runtime() { xcrun simctl list runtimes -j | python3 -c "import json,sys; v=[r for r in json.load(sys.stdin)['runtimes'] if r['platform']=='$1' and r.get('isAvailable',True)]; print(v[-1]['identifier'])"; }
+	model() { xcrun simctl list runtimes -j | python3 -c "import json,sys; r=[r for r in json.load(sys.stdin)['runtimes'] if r['identifier']=='$1'][0]; print([t['identifier'] for t in r['supportedDeviceTypes'] if '$2' in t['identifier']][0])"; }
+	pr=${PHONE_RUNTIME:-$(runtime iOS)}; wr=${WATCH_RUNTIME:-$(runtime watchOS)}
+	pt=${PHONE_TYPE:-$(model "$pr" iPhone)}; wt=${WATCH_TYPE:-$(model "$wr" Apple-Watch)}
 	p=$(xcrun simctl create "Sport Mode Phone" "$pt" "$pr")
 	w=$(xcrun simctl create "Sport Mode Watch" "$wt" "$wr")
 	xcrun simctl pair "$w" "$p" >/dev/null
@@ -110,8 +113,10 @@ start() {
 	started pod-sim || { nohup "$out/pod-sim" -transport impossible -socket $POD_SOCK -api $POD_API \
 		-state "$run/pod-state.toml" ${podfresh:+-fresh} >"$run/pod.log" 2>&1 & }
 	# The stand-in sensor G7SensorKit offers in the Simulator, so "scan" and manual entry both find it.
-	started g7-sim || { (cd "$run" && nohup "$out/g7-sim" -transport impossible -socket $G7_SOCK -api $G7_API \
-		${fresh:+-fresh -code 4321 -serial 7810293746} >"$run/g7.log" 2>&1 &) }
+	# In a subshell for its working directory, which exec hands to the simulator, so nothing is left
+	# holding the terminal.
+	started g7-sim || { (cd "$run" && exec nohup "$out/g7-sim" -transport impossible -socket $G7_SOCK -api $G7_API \
+		${fresh:+-fresh -code 4321 -serial 7810293746}) >"$run/g7.log" 2>&1 </dev/null & }
 	sleep 1
 	# The mux refuses the socket if another provider (ImpossiBLE's menu bar app?) holds it; its log says.
 	started impossible-mux || { nohup "$out/impossible-mux" -api $MUX_API $G7_SOCK $POD_SOCK >"$run/mux.log" 2>&1 & }

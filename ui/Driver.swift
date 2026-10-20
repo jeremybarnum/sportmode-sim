@@ -10,6 +10,7 @@
 //   swipe <direction>    swipe the screen: left, right, up or down
 //   type <text>          type into the focused field
 //   double <text>        double-tap the element whose label contains the text
+//   press [s] <text>     press and hold it (default 2 s)
 //   crown <turns> [v]    turn the crown (watch); 1.0 is a full turn; v in turns per second
 //   sys <label>          tap a button of a system sheet or alert (phone)
 //   systype <text>       type into a system sheet, such as the passcode (phone); \n for return
@@ -66,6 +67,11 @@ final class Driver: XCTestCase {
             let label = element.label
             element.tap()
             return (true, "tapped \(label)")
+        case "press":
+            let (seconds, label) = timed(arg)
+            guard let element = find(label, contains: true, in: app, within: timeout) else { return (false, "no \(label)") }
+            element.press(forDuration: seconds == timeout ? 2 : seconds)
+            return (true, "pressed \(label)")
         case "double":
             guard let element = find(arg, contains: true, in: app, within: timeout) else { return (false, "no \(arg)") }
             element.doubleTap()
