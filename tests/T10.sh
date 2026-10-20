@@ -11,9 +11,7 @@ reset
 
 say "(a) Phone out of reach; Start on the watch"
 sim phone away
-watch_start_shown
-a=$(now)
-ui watch tap "Start Sport Mode"
+a=$(tap_start)
 ui watch wait 20 "Start Anyway"
 ui watch tap Cancel
 sim phone back
@@ -25,9 +23,7 @@ ghost=$(lines watch "$a" 'GRANT received' | head -1)
 say "(c) Phone app not running; Start on the watch"
 sim quit phone
 sleep 3
-watch_start_shown
-c=$(now)
-ui watch tap "Start Sport Mode"
+c=$(tap_start)
 "$UI" watch wait 20 "Start Anyway" >/dev/null 2>&1 && ui watch tap Cancel
 sim launch phone
 sleep 10

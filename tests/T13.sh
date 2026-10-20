@@ -11,9 +11,7 @@ reset
 say "Pod and phone out of reach; offline start; the takeover fails"
 sim pod away
 sim phone away
-start=$(now)
-watch_start_shown
-ui watch tap "Start Sport Mode"
+start=$(tap_start)
 ui watch wait 20 "Start Anyway"
 ui watch tap "Start Anyway"
 wait_for watch "$start" 'TAKEOVER FAILED|TAKEOVER ABORTED' 400

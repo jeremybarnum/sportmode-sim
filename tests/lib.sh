@@ -144,6 +144,31 @@ take_back() {
 	ui phone tap "Reclaim Now"
 }
 
+# Like wait_for, but answers instead of ending the test: 0 when the line came, 1 when it did not.
+logged_within() { # side since regex seconds
+	local _end
+	_end=$(($(date +%s) + $4))
+	while :; do
+		[ -n "$(lines "$1" "$2" "$3")" ] && return 0
+		[ "$(date +%s)" -ge "$_end" ] && return 1
+		sleep 1
+	done
+}
+
+# Tap Start on the watch until the watch takes it (a tap right after a page draws or the app wakes
+# is often swallowed); prints the time of the tap that registered.
+tap_start() {
+	local i t
+	watch_start_shown
+	for i in 1 2 3; do
+		t=$(now)
+		ui watch tap "Start Sport Mode"
+		logged_within watch "$t" 'REQUEST sent' 6 && { echo "$t"; return 0; }
+		say "the Start tap was not taken; tapping again" >&2
+	done
+	abort "the watch did not take the Start tap"
+}
+
 # The main page with Start on it; a just-launched app can take a few seconds to show its pages.
 watch_start_shown() {
 	local i
@@ -157,15 +182,13 @@ watch_start_shown() {
 
 # Start on the watch and wait for the loan.
 start_loan() {
-	watch_start_shown
-	ui watch tap "Start Sport Mode"
+	tap_start >/dev/null
 	wait_for watch "$1" 'ACTIVE — epoch' 90
 }
 
 # An offline start: Start, then Start Anyway when the watch offers it.
 offline_start() {
-	watch_start_shown
-	ui watch tap "Start Sport Mode"
+	tap_start >/dev/null
 	ui watch wait 20 "Start Anyway"
 	ui watch tap "Start Anyway"
 	wait_for watch "$1" 'seized loan ACTIVE' 240
