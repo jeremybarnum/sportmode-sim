@@ -338,9 +338,10 @@ expect_between_none() { # side since from until forbidden what
 # screen shows: a step that misfired leaves the next test looking at the wrong screen.
 phone_home() {
 	local i
-	for i in 1 2 3 4; do
+	for i in 1 2 3 4 5; do
 		dismiss_alert
-		"$UI" phone wait 0 glucoseHUDView >/dev/null 2>&1 && return 0
+		# The element tree lists the status screen under whatever covers it, so a screen on top
+		# must go first: a pushed screen's back button, a sheet's Cancel or Done.
 		if shows phone BackButton; then "$UI" phone tap BackButton >/dev/null 2>&1
 		elif shows phone Cancel; then "$UI" phone tap Cancel >/dev/null 2>&1
 		elif shows phone Done; then "$UI" phone tap Done >/dev/null 2>&1
