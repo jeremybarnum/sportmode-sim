@@ -94,10 +94,12 @@ normal Start, so run a test with a normal Start (T1 or T3) before T6, T7, T10, T
 
 `TIME_SCALE=5 ./sim.sh start`, then `./sim.sh launch phone` and `launch watch`: the sensor reads every
 60 s instead of 300, and the apps, launched with `SPORTMODE_TIME_SCALE=5`, divide their own waits by
-5: the watch's report overdue (6 min → 72 s), the take-back's settle, the standing copy's refresh,
-and Loop's 4.2-minute loop rate limit on both phone and watch. Timestamps are real; only waits
-shrink. Not scaled, because they are real latencies: the 10 s and 30 s answer waits, the 60 s
-takeover lease, resend throttles. The scale needs a Loop built from a branch that has it
+5: Loop's 4.2-minute loop rate limit on both phone and watch, the take-back's settle, the standing
+copy's refresh, and the cycle part of the watch's report overdue (one cycle plus a minute's margin:
+6 min at scale 1, 2 min at scale 5). Timestamps are real; only waits shrink. Not scaled, because
+they are real latencies: the 10 s and 30 s answer waits, the 60 s takeover lease, resend throttles,
+and the margin. A full run took 30 min at scale 5 against 49 at real time; the rest is taps,
+answer waits and bolus delivery, which are real. The scale needs a Loop built from a branch that has it
 (`sim-testing` does); without it the apps run at real time and only the sensor is faster. Use one
 scale for a sensor's whole life: restarting the sensor simulator at another interval re-indexes
 its readings.
