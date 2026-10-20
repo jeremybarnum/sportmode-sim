@@ -141,16 +141,27 @@ take_back() {
 	ui phone tap "Reclaim Now"
 }
 
+# The main page with Start on it; a just-launched app can take a few seconds to show its pages.
+watch_start_shown() {
+	local i
+	for i in 1 2 3 4 5 6; do
+		watch_main
+		shows watch "Start Sport Mode" && return 0
+		sleep 5
+	done
+	abort "the watch shows no Start"
+}
+
 # Start on the watch and wait for the loan.
 start_loan() {
-	watch_main
+	watch_start_shown
 	ui watch tap "Start Sport Mode"
 	wait_for watch "$1" 'ACTIVE — epoch' 90
 }
 
 # An offline start: Start, then Start Anyway when the watch offers it.
 offline_start() {
-	watch_main
+	watch_start_shown
 	ui watch tap "Start Sport Mode"
 	ui watch wait 20 "Start Anyway"
 	ui watch tap "Start Anyway"
@@ -168,7 +179,8 @@ watch_bolus() { # units (a multiple of 0.5)
 	n=$(awk -v b="$1" 'BEGIN { printf "%d", b / 0.5 + 0.5 }')
 	while [ "$n" -gt 0 ]; do ui watch tap "+"; n=$((n - 1)); done
 	ui watch tree
-	shown=$(grep -E "StaticText.*label: '[0-9.]+'" /tmp/sportmode-ui/watch.tree | sed -n "s/.*label: '\([0-9.]*\)'.*/\1/p" | head -1)
+	# The amount is the number just before the "U" beside it.
+	shown=$(awk "/label: 'U'\$/ { print prev } { if (match(\$0, /label: '[0-9.]+'/)) prev = substr(\$0, RSTART + 8, RLENGTH - 9) }" /tmp/sportmode-ui/watch.tree | head -1)
 	say "watch bolus screen shows ${shown:-?} U"
 	t0=$(now)
 	ui watch tap Bolus
@@ -252,11 +264,11 @@ expect_residual() { # side since regex lo hi what
 expect_between_none() { # side since from until forbidden what
 	local all res
 	all=$(lines "$1" "$2" '.')
-	res=$(echo "$all" | awk -v a="$3" -v b="$4" -v x="$5" '
-		state == 0 && $0 ~ a { state = 1; next }
-		state == 1 && $0 ~ b { state = 2; print "ok " $0; exit }
-		state == 1 && $0 ~ x { print "bad " $0; exit }
-		END { if (state < 2 && !printed) {} }')
+	# The patterns go through the environment: awk -v would strip their backslashes.
+	res=$(echo "$all" | A="$3" B="$4" X="$5" awk '
+		state == 0 && $0 ~ ENVIRON["A"] { state = 1; next }
+		state == 1 && $0 ~ ENVIRON["B"] { state = 2; print "ok " $0; exit }
+		state == 1 && $0 ~ ENVIRON["X"] { print "bad " $0; exit }')
 	case "$res" in
 	ok*) pass "$6" "${res#ok }" ;;
 	bad*) fail "$6" "${res#bad }" ;;

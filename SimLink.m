@@ -14,9 +14,10 @@
 // info, a file) only when the receiving app launches, never while it runs.
 // So this library carries those itself: the sender writes each one to a
 // folder the receiver reads (in order, while the link is up), and the app
-// sees the delegate call it would have had. Nothing shows as outstanding at
-// the sender, so a sender cannot cancel one it superseded. Application
-// context, which the Simulators do deliver, stays with the system.
+// sees the delegate call it would have had. A user info transfer not yet
+// delivered shows in the sender's outstandingUserInfoTransfers and can be
+// cancelled, as on a device. Application context, which the Simulators do
+// deliver, stays with the system.
 //
 // Control file: $SIMLINK_FILE, default /tmp/sportmode-sim-link. Queues:
 // $SIMLINK_QUEUE/to-phone and to-watch, default /tmp/sportmode-sim-queue.
@@ -48,6 +49,29 @@ static BOOL readDown(void) {
 @implementation SLSessionFile
 - (NSURL *)fileURL { return self.heldURL; }
 - (NSDictionary<NSString *, id> *)metadata { return self.heldMetadata; }
+@end
+
+#pragma mark - A transfer waiting in the queue
+
+// What transferUserInfo returns: outstanding until the receiver takes its file, and cancelled by
+// removing the file before then.
+@interface SLUserInfoTransfer : WCSessionUserInfoTransfer
+@property (nonatomic, copy) NSString *path;
+@property (nonatomic, copy) NSDictionary<NSString *, id> *heldUserInfo;
+@property (nonatomic) BOOL complication;
+@end
+
+static NSMutableArray<SLUserInfoTransfer *> *outstanding;
+
+@implementation SLUserInfoTransfer
+- (NSDictionary<NSString *, id> *)userInfo { return self.heldUserInfo; }
+- (BOOL)isCurrentComplicationInfo { return self.complication; }
+// Waiting for the receiver, not moving: what a device reports for a transfer not yet started.
+- (BOOL)isTransferring { return NO; }
+- (void)cancel {
+    [NSFileManager.defaultManager removeItemAtPath:self.path error:nil];
+    @synchronized (outstanding) { [outstanding removeObject:self]; }
+}
 @end
 
 #pragma mark - The delegate, seen through the link
@@ -187,20 +211,47 @@ static NSDictionary *sl_receivedApplicationContext(WCSession *self, SEL _cmd) {
 
 #pragma mark - The queued channels
 
-// One item: a property list, named so that names sort in sending order.
-static void enqueue(NSDictionary *item) {
+// One item: a property list, named so that names sort in sending order. Returns its path.
+static NSString *enqueue(NSDictionary *item) {
     static uint64_t counter;
     NSString *name = [NSString stringWithFormat:@"%020llu-%06llu.plist",
                       (unsigned long long)(NSDate.date.timeIntervalSince1970 * 1e6), (unsigned long long)++counter];
     NSData *data = [NSPropertyListSerialization dataWithPropertyList:item format:NSPropertyListBinaryFormat_v1_0 options:0 error:nil];
     NSString *tmp = [outbox stringByAppendingPathComponent:[@"." stringByAppendingString:name]];
-    if (!data || ![data writeToFile:tmp atomically:NO]) { NSLog(@"SimLink: could not queue %@", item[@"kind"]); return; }
-    rename(tmp.fileSystemRepresentation, [outbox stringByAppendingPathComponent:name].fileSystemRepresentation);
+    if (!data || ![data writeToFile:tmp atomically:NO]) { NSLog(@"SimLink: could not queue %@", item[@"kind"]); return nil; }
+    NSString *path = [outbox stringByAppendingPathComponent:name];
+    rename(tmp.fileSystemRepresentation, path.fileSystemRepresentation);
+    return path;
+}
+
+static id queueUserInfo(NSDictionary *userInfo, BOOL complication) {
+    NSString *path = enqueue(@{@"kind": @"userInfo", @"userInfo": userInfo ?: @{}});
+    if (!path) return nil;
+    SLUserInfoTransfer *t = ((id (*)(id, SEL))objc_msgSend)([SLUserInfoTransfer alloc], @selector(init));
+    t.path = path;
+    t.heldUserInfo = userInfo ?: @{};
+    t.complication = complication;
+    @synchronized (outstanding) { [outstanding addObject:t]; }
+    return t;
 }
 
 static id sl_transferUserInfo(WCSession *self, SEL _cmd, NSDictionary *userInfo) {
-    enqueue(@{@"kind": @"userInfo", @"userInfo": userInfo ?: @{}});
-    return nil;
+    return queueUserInfo(userInfo, NO);
+}
+
+static id sl_transferComplicationUserInfo(WCSession *self, SEL _cmd, NSDictionary *userInfo) {
+    return queueUserInfo(userInfo, YES);
+}
+
+// The transfers whose files the receiver has not taken yet.
+static NSArray *sl_outstandingUserInfoTransfers(WCSession *self, SEL _cmd) {
+    @synchronized (outstanding) {
+        NSIndexSet *gone = [outstanding indexesOfObjectsPassingTest:^BOOL(SLUserInfoTransfer *t, NSUInteger i, BOOL *stop) {
+            return ![NSFileManager.defaultManager fileExistsAtPath:t.path];
+        }];
+        [outstanding removeObjectsAtIndexes:gone];
+        return [outstanding copy];
+    }
 }
 
 static id sl_transferFile(WCSession *self, SEL _cmd, NSURL *url, NSDictionary *metadata) {
@@ -294,8 +345,10 @@ static void SimLinkLoad(void) {
     origSendMessageData = swap(@selector(sendMessageData:replyHandler:errorHandler:), (IMP)sl_sendMessageData);
     origSetDelegate = swap(@selector(setDelegate:), (IMP)sl_setDelegate);
     origReceivedContext = swap(@selector(receivedApplicationContext), (IMP)sl_receivedApplicationContext);
+    outstanding = [NSMutableArray array];
     swap(@selector(transferUserInfo:), (IMP)sl_transferUserInfo);
-    swap(@selector(transferCurrentComplicationUserInfo:), (IMP)sl_transferUserInfo);
+    swap(@selector(transferCurrentComplicationUserInfo:), (IMP)sl_transferComplicationUserInfo);
+    swap(@selector(outstandingUserInfoTransfers), (IMP)sl_outstandingUserInfoTransfers);
     swap(@selector(transferFile:metadata:), (IMP)sl_transferFile);
     linkDown = readDown();
     NSLog(@"SimLink: loaded, control file %@, link %@", controlPath, linkDown ? @"DOWN" : @"UP");

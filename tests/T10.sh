@@ -11,18 +11,21 @@ reset
 
 say "(a) Phone out of reach; Start on the watch"
 sim phone away
-watch_main
+watch_start_shown
 a=$(now)
 ui watch tap "Start Sport Mode"
 ui watch wait 20 "Start Anyway"
 ui watch tap Cancel
 sim phone back
 sleep 15
+# A Start cancelled at the offer must not start later: the queued request is cancelled with it.
+ghost=$(lines watch "$a" 'GRANT received' | head -1)
+[ -n "$ghost" ] && reset
 
 say "(c) Phone app not running; Start on the watch"
 sim quit phone
 sleep 3
-watch_main
+watch_start_shown
 c=$(now)
 ui watch tap "Start Sport Mode"
 "$UI" watch wait 20 "Start Anyway" >/dev/null 2>&1 && ui watch tap Cancel
@@ -31,6 +34,13 @@ sleep 10
 
 say "Checks"
 expect_within watch "$a" 'offering offline start' 12 "(a) offered after the 10 s wait, phone out of reach"
-expect_within watch "$c" 'offering offline start' 12 "(c) offered after the 10 s wait, phone app not running"
-expect_none watch "$a" 'SEIZE confirmed' "no loan started without the confirm"
+# A message to a phone app that is not running can wake it (the Simulator does), and then it answers.
+if [ -n "$(lines watch "$c" 'GRANT received')" ]; then
+	pass "(c) the phone app woke to the request and granted: the offer is not reached this way here" "$(lines watch "$c" 'GRANT received' | head -1)"
+else
+	expect_within watch "$c" 'offering offline start' 12 "(c) offered after the 10 s wait, phone app not running"
+fi
+expect_none watch "$a" 'SEIZE confirmed' "no offline start without the confirm"
+if [ -z "$ghost" ]; then pass "(a) the cancelled Start did not start a loan when the phone came back" ""
+else fail "(a) the cancelled Start did not start a loan when the phone came back" "$ghost"; fi
 verdict

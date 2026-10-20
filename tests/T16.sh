@@ -29,7 +29,15 @@ say "Checks"
 expect phone "$off" 'asking the watch whether it holds the pod' "phone asked the silent watch"
 expect phone "$off" 'did NOT answer' "no answer: phone takes the pod"
 expect phone "$off" 'take-back: pod link up' "phone reached the pod"
-expect_residual phone "$off" 'reconcile\[FORCE-RECLAIM\]' 0.3 0.7 "take-back counted the watch's bolus"
+# The watch's records may reach the phone before the watch goes off (then the take-back expects the
+# bolus and the residual is near zero) or not (then the residual books it): either way, delivered.
+l=$(lines phone "$off" 'reconcile\[FORCE-RECLAIM\]' | tail -1)
+verdict_ok=$(echo "$l" | awk '{ d = 0; r = 9
+	if (match($0, /delivered=[0-9.]+/)) d = substr($0, RSTART + 10, RLENGTH - 10) + 0
+	if (match($0, /residual=[+-]?[0-9.]+/)) r = substr($0, RSTART + 9, RLENGTH - 9) + 0
+	if (d >= 0.45 && ((r >= -0.2 && r <= 0.2) || (r >= 0.3 && r <= 0.7))) print "yes" }')
+if [ "$verdict_ok" = yes ]; then pass "take-back accounted for the watch's bolus" "$l"
+else fail "take-back accounted for the watch's bolus" "${l:-no FORCE-RECLAIM line}"; fi
 expect phone "$off" 'temp cancelled' "watch's temp ended"
 expect_between_none watch "$on" 'RESUMED|launch' 'REVOKED|stood aside|CLOSED — ' 'dosemath|enacting' "the watch back on stood aside before any dose"
 verdict

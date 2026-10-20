@@ -12,7 +12,7 @@ say "Pod and phone out of reach; offline start; the takeover fails"
 sim pod away
 sim phone away
 start=$(now)
-watch_main
+watch_start_shown
 ui watch tap "Start Sport Mode"
 ui watch wait 20 "Start Anyway"
 ui watch tap "Start Anyway"

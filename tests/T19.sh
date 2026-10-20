@@ -33,5 +33,6 @@ expect watch "$on" 'RESUMED' "watch resumed"
 expect watch "$on" 'statusReport sent' "watch asked the phone first"
 expect watch "$on" 'REVOKED|stood aside' "watch stood aside"
 expect_between_none watch "$on" 'RESUMED' 'REVOKED|stood aside' 'dosemath|enacting' "no dose before the phone's answer"
-expect_none phone "$on" 'RETRO-ACK' "phone did not adopt the revived loan"
+expect phone "$on" 'estimate RETIRED' "the watch's records retired the phone's estimate"
+expect phone "$on" 'reclaim VERIFIED' "phone back in control of the pod after the records came home"
 verdict
