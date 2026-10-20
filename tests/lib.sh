@@ -239,7 +239,7 @@ reset() {
 	running phone || "$SIM" launch phone >/dev/null
 	running watch || "$SIM" launch watch >/dev/null
 	drivers
-	dismiss_alert
+	phone_home
 	# A sheet left open on the watch (a list, the bolus screen) hides the pages.
 	while shows watch close-sheet; do "$UI" watch tap close-sheet >/dev/null 2>&1 || break; sleep 1; done
 	watch_main
@@ -304,6 +304,23 @@ expect_between_none() { # side since from until forbidden what
 	esac
 }
 
+# Close whatever screen the phone was left on (a carb entry, a bolus, a sheet) until the status
+# screen shows: a step that misfired leaves the next test looking at the wrong screen.
+phone_home() {
+	local i
+	for i in 1 2 3 4; do
+		dismiss_alert
+		"$UI" phone wait 0 chartTitleText_Glucose >/dev/null 2>&1 && return 0
+		if shows phone BackButton; then "$UI" phone tap BackButton >/dev/null 2>&1
+		elif shows phone Cancel; then "$UI" phone tap Cancel >/dev/null 2>&1
+		elif shows phone Done; then "$UI" phone tap Done >/dev/null 2>&1
+		else break
+		fi
+		sleep 1
+	done
+	"$UI" phone wait 5 chartTitleText_Glucose >/dev/null 2>&1 || say "the phone is not on its status screen" >&2
+}
+
 # Dismiss the phone's alert, if one is up.
 # (The Simulator app cannot have critical alerts, so "Turn On Alarms" comes up now and then.)
 dismiss_alert() {
@@ -335,5 +352,6 @@ phone_carbs() { # grams
 	ui phone type "$1"
 	ui phone tap button_Continue
 	ui phone tap button_bolusAction
-	"$UI" phone wait 10 "Add Carbs" >/dev/null 2>&1 || true
+	# Back on the status screen; the toolbar alone proves nothing, it is on every screen.
+	"$UI" phone gone 10 "Meal Bolus" >/dev/null 2>&1 || phone_home
 }

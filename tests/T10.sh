@@ -30,9 +30,10 @@ sleep 10
 
 say "Checks"
 expect_within watch "$a" 'offering offline start' 12 "(a) offered after the 10 s wait, phone out of reach"
-# A message to a phone app that is not running can wake it (the Simulator does), and then it answers.
-if [ -n "$(lines watch "$c" 'GRANT received')" ]; then
-	pass "(c) the phone app woke to the request and granted: the offer is not reached this way here" "$(lines watch "$c" 'GRANT received' | head -1)"
+# A message to a phone app that is not running can wake it (the Simulator does), and then it answers:
+# a grant, or a denial while it is still reaching its pod. Either is an answer, so no offer.
+if [ -n "$(lines watch "$c" 'GRANT received|DENIED by phone')" ]; then
+	pass "(c) the phone app woke to the request and answered: the offer is not reached this way here" "$(lines watch "$c" 'GRANT received|DENIED by phone' | head -1)"
 else
 	expect_within watch "$c" 'offering offline start' 12 "(c) offered after the 10 s wait, phone app not running"
 fi
