@@ -6,20 +6,17 @@ TEST=T1
 set -u
 
 say "$TEST — ordinary loan, ended on the watch"
-drivers
-watch_main
-"$UI" watch wait 5 "Start Sport Mode" >/dev/null || abort "the watch shows no Start: is a loan running?"
+reset
 
 say "Start on the watch"
 start=$(now)
-ui watch tap "Start Sport Mode"
-wait_for watch "$start" 'ACTIVE — epoch' 90
-active=$(now)
+start_loan "$start"
 
-say "Loan active; two watch loop cycles (up to 12 minutes, paced by sensor readings)"
-wait_for watch "$active" 'CYCLE VERDICT' 720 2
+say "Two watch loop cycles (up to 12 minutes, paced by sensor readings)"
+wait_for watch "$start" 'CYCLE VERDICT' 720 2
 
 say "End on the watch"
+watch_main
 end=$(now)
 ui watch tap End
 wait_for watch "$end" 'CLOSED — ' 120

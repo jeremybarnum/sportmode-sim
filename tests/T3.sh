@@ -6,21 +6,15 @@ TEST=T3
 set -u
 
 say "$TEST — phone take-back during a loan"
-drivers
-watch_main
-"$UI" watch wait 5 "Start Sport Mode" >/dev/null || abort "the watch shows no Start: is a loan running?"
+reset
 
-say "Start on the watch"
+say "Start on the watch, one loop cycle"
 start=$(now)
-ui watch tap "Start Sport Mode"
-wait_for watch "$start" 'ACTIVE — epoch' 90
-active=$(now)
-
-say "Loan active; one watch loop cycle (up to 6 minutes)"
-wait_for watch "$active" 'CYCLE VERDICT' 400
+start_loan "$start"
+wait_for watch "$start" 'CYCLE VERDICT' 400
 
 say "Take the pod back on the phone"
-ui phone tap "Sport Mode Active"
+ui phone "tap~" "Sport Mode"
 tap=$(now)
 ui phone tap "Reclaim Now"
 wait_for phone "$tap" 'temp cancelled' 60

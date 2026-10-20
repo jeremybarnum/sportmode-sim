@@ -11,6 +11,9 @@
 //   type <text>          type into the focused field
 //   double <text>        double-tap the element whose label contains the text
 //   press [s] <text>     press and hold it (default 2 s)
+//   slide <text>         drag a slide-to-confirm control from end to end
+//   tapxy <x> <y>        tap a point, in points from the top left (a control with no label)
+//   swipeleft <text>     swipe left on the element whose label contains the text (a row's actions)
 //   crown <turns> [v]    turn the crown (watch); 1.0 is a full turn; v in turns per second
 //   sys <label>          tap a button of a system sheet or alert (phone)
 //   systype <text>       type into a system sheet, such as the passcode (phone); \n for return
@@ -65,8 +68,32 @@ final class Driver: XCTestCase {
                 return (false, "no \(arg)")
             }
             let label = element.label
-            element.tap()
+            // A view that takes taps without being a control (a status display) is not "hittable"
+            // to XCTest, and tapping it ends the test: tap its middle instead.
+            if element.isHittable { element.tap() } else { element.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap() }
             return (true, "tapped \(label)")
+        case "swipeleft":
+            // An element's own swipe, for a list row's actions.
+            guard let element = find(arg, contains: true, in: app, within: timeout) else { return (false, "no \(arg)") }
+            element.swipeLeft()
+            return (true, "swiped \(arg)")
+        case "tapxy":
+            // A point on the screen, in points from the top left: for a control with no label.
+            let xy = arg.split(separator: " ").compactMap { Double($0) }
+            guard xy.count == 2 else { return (false, "tapxy <x> <y>") }
+            app.coordinate(withNormalizedOffset: CGVector(dx: 0, dy: 0)).withOffset(CGVector(dx: xy[0], dy: xy[1])).tap()
+            return (true, "tapped \(arg)")
+        case "slide":
+            // A slide-to-confirm control: drag from its left end to its right end.
+            guard let element = find(arg, contains: true, in: app, within: timeout) else { return (false, "no \(arg)") }
+            #if os(iOS)
+            element.coordinate(withNormalizedOffset: CGVector(dx: 0.08, dy: 0.5))
+                .press(forDuration: 0.3, thenDragTo: element.coordinate(withNormalizedOffset: CGVector(dx: 0.98, dy: 0.5)),
+                       withVelocity: .slow, thenHoldForDuration: 0.3)
+            #else
+            element.swipeRight()
+            #endif
+            return (true, "slid \(arg)")
         case "press":
             let (seconds, label) = timed(arg)
             guard let element = find(label, contains: true, in: app, within: timeout) else { return (false, "no \(label)") }

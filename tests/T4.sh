@@ -1,0 +1,51 @@
+#!/bin/sh
+# T4 — Phone take-back with the watch's records missing. The insulin the phone has no record of
+# is booked once as an estimate; the phone's next reading does not count it again; the watch's
+# records, when they come home, retire the estimate.
+TEST=T4
+. "$(dirname "$0")/lib.sh"
+set -u
+
+say "$TEST — take-back with the watch's records missing"
+reset
+
+say "Start on the watch, one loop cycle"
+start=$(now)
+start_loan "$start"
+wait_for watch "$start" 'CYCLE VERDICT' 400
+
+say "Phone out of reach; 0.5 U bolus on the watch"
+sim phone away
+b=$(now)
+watch_bolus 0.5
+wait_for watch "$b" 'ACCEPTED by pod' 120
+
+say "Watch off; phone back; the phone takes the pod back"
+sim watch off
+sim phone back
+sleep 5
+tb=$(now)
+take_back
+wait_for phone "$tb" 'reconcile\[FORCE-RECLAIM\]' 60
+wait_for phone "$tb" 'estimate BOOKED' 60
+
+say "The phone's next reading"
+r=$(now)
+wait_reading "$r" 400
+wait_for phone "$r" '\[odometer\] \(own\)' 300
+
+say "Watch back on: its records come home"
+on=$(now)
+sim watch on
+wait_for watch "$on" 'RESUMED' 120
+wait_for phone "$on" 'estimate RETIRED' 400
+
+say "Checks"
+expect_residual phone "$tb" 'reconcile\[FORCE-RECLAIM\]' 0.3 0.7 "take-back's check finds the watch's bolus"
+expect_count phone "$tb" 'estimate BOOKED' 1 "the missing insulin booked once"
+expect_clean phone "$r" '\[odometer\] \(own\)' "the next reading does not count it again"
+expect watch "$on" 'RESUMED' "watch resumed"
+expect_between_none watch "$on" 'RESUMED' 'REVOKED|stood aside' 'dosemath|enacting' "watch stood aside before any dose"
+expect phone "$on" 'estimate RETIRED' "the watch's records retired the estimate"
+expect_none phone "$tb" 'Overstated' "no Insulin On Board May Be Overstated"
+verdict

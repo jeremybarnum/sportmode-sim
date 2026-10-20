@@ -251,6 +251,7 @@ status) status ;;
 launch) launch "${2:-}" ;;
 log) logof "${2:-}" "${3:-}" ;;
 applog) applog "${2:-}" ;;
+bundle) case "${2:-}" in phone) echo "$PHONE_ID" ;; watch) echo "$WATCH_ID" ;; *) exit 2 ;; esac ;;
 quit) quit "${2:-}" ;;
 since) f=$(applog "${2:-}"); awk -v t="${3:-00:00:00}" '$2 >= t' "$f" | grep -E "${4:-.}" | cut -c12-260 ;;
 phone) phone "${2:-}" ;;

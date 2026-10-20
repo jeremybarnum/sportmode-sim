@@ -77,9 +77,18 @@ command attaches a new one.
 
 ## Tests without a person
 
-`tests/T<n>.sh` runs a bench test start to finish: the taps, the situations, the waits on the apps'
-logs, and the checks of the test's pass lines, ending in PASS or FAIL. `tests/run.sh T1 T3` runs
-several in a row and keeps each one's output under `build/results/`. Written so far: T1, T3.
+`tests/T<n>.sh` runs a bench test start to finish: it resets to a known state (everything in range,
+both apps up, no loan), does the taps and the situations, waits on the apps' logs, checks the
+test's pass lines, and ends in PASS or FAIL. `tests/run.sh` runs all of them in a row (or the ones
+named) and keeps each one's output under `build/results/`.
+
+Scripted: T1, T3–T11, T13, T16–T19. T9's six hours are simulated by aging the watch's saved last pod
+reading while it is off. Not scripted: T2 (no way to cause it), T12 (opportunistic), T14 (a tap
+within a second of the watch waking), T15 (a clarifying test for the hardware emulator).
+
+A fresh watch app gets the phone's standing copy (for an offline start) only after its first
+normal Start, so run a test with a normal Start (T1 or T3) before T6, T7, T10, T13 and T19;
+`run.sh` with no argument runs them in number order, which does that.
 
 ## What it does not cover
 
