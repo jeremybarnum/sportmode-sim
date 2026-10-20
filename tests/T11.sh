@@ -16,12 +16,12 @@ start_loan "$start"
 
 say "On the watch: the carb list, delete the 13 g entry"
 watch_page 2
-# The row sits below the screen: the crown scrolls the page, then the list, to it.
-ui watch crown 0.4
+# The row sits below the screen: a swipe up scrolls the page, then the list, to it.
+ui watch swipe up
 ui watch tap "ACTIVE CARBS"
 sleep 2
-ui watch crown 0.6
-ui watch swipeleft "13 g"
+ui watch swipe up
+ui watch swipeleft ", 13 g"
 d=$(now)
 ui watch tap Delete
 wait_for watch "$d" 'carb DELETE' 30

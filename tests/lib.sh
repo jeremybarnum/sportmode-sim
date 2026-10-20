@@ -214,6 +214,8 @@ reset() {
 	running watch || "$SIM" launch watch >/dev/null
 	drivers
 	dismiss_alert
+	# A sheet left open on the watch (a list, the bolus screen) hides the pages.
+	while shows watch close-sheet; do "$UI" watch tap close-sheet >/dev/null 2>&1 || break; sleep 1; done
 	watch_main
 	for i in 1 2 3; do
 		shows watch "Start Sport Mode" && { watch_reads_sensor; return 0; }
