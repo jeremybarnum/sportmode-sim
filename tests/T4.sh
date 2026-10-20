@@ -12,13 +12,11 @@ reset
 say "Start on the watch, one loop cycle"
 start=$(now)
 start_loan "$start"
-wait_for watch "$start" 'CYCLE VERDICT' 400
+wait_for watch "$start" 'CYCLE VERDICT computed=ok' 400
 
 say "Phone out of reach; 0.5 U bolus on the watch"
 sim phone away
-b=$(now)
 watch_bolus 0.5
-wait_for watch "$b" 'ACCEPTED by pod' 120
 
 say "Watch off; phone back; the phone takes the pod back"
 sim watch off

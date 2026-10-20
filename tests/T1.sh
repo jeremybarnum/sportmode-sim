@@ -13,7 +13,7 @@ start=$(now)
 start_loan "$start"
 
 say "Two watch loop cycles (up to 12 minutes, paced by sensor readings)"
-wait_for watch "$start" 'CYCLE VERDICT' 720 2
+wait_for watch "$start" 'CYCLE VERDICT computed=ok' 720 2
 
 say "End on the watch"
 watch_main

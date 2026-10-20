@@ -11,9 +11,10 @@ reset
 say "Start on the watch, one loop cycle"
 start=$(now)
 start_loan "$start"
-wait_for watch "$start" 'CYCLE VERDICT' 400
+wait_for watch "$start" 'CYCLE VERDICT computed=ok' 400
 
 say "Take the pod back on the phone"
+dismiss_alert
 ui phone "tap~" "Sport Mode"
 tap=$(now)
 ui phone tap "Reclaim Now"

@@ -12,7 +12,7 @@ reset
 say "Start on the watch, one loop cycle"
 start=$(now)
 start_loan "$start"
-wait_for watch "$start" 'CYCLE VERDICT' 400
+wait_for watch "$start" 'CYCLE VERDICT computed=ok' 400
 state=$(watch_state_file) || abort "no watch state file"
 
 say "Watch off; the phone takes the pod back; seven hours pass for the watch"

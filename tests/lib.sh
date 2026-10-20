@@ -136,6 +136,7 @@ shows() { "$UI" "$1" wait 0 "$2" >/dev/null 2>&1; }
 
 # The phone takes the pod back from the watch: the status cell, then Reclaim Now.
 take_back() {
+	dismiss_alert
 	ui phone "tap~" "Sport Mode"
 	ui phone tap "Reclaim Now"
 }
@@ -156,24 +157,30 @@ offline_start() {
 	wait_for watch "$1" 'seized loan ACTIVE' 240
 }
 
-# The watch's bolus screen: set the amount with + and −, Bolus, then the double tap that confirms
-# it in Simulator builds.
-watch_bolus() { # units
-	local cur steps
+# The watch's bolus screen: + and − step 0.5 U, so the amount goes to zero and then up in halves;
+# Bolus, then the double tap that confirms it in Simulator builds. Waits until the pod has given it.
+watch_bolus() { # units (a multiple of 0.5)
+	local n t0 shown
 	watch_page 1
 	ui watch tap bolus
 	ui watch wait 5 "+"
+	for n in 1 2 3 4; do "$UI" watch tap "−" >/dev/null 2>&1 || break; done
+	n=$(awk -v b="$1" 'BEGIN { printf "%d", b / 0.5 + 0.5 }')
+	while [ "$n" -gt 0 ]; do ui watch tap "+"; n=$((n - 1)); done
 	ui watch tree
-	cur=$(grep -E "StaticText.*label: '[0-9]+\.[0-9]+'" /tmp/sportmode-ui/watch.tree | head -1 | sed "s/.*label: '\([0-9.]*\)'.*/\1/")
-	steps=$(awk -v a="${cur:-0}" -v b="$1" 'BEGIN { printf "%d", (b - a) / 0.05 + (b >= a ? 0.5 : -0.5) }')
-	while [ "$steps" -gt 0 ]; do ui watch tap "+"; steps=$((steps - 1)); done
-	while [ "$steps" -lt 0 ]; do ui watch tap "−"; steps=$((steps + 1)); done
+	shown=$(grep -E "StaticText.*label: '[0-9.]+'" /tmp/sportmode-ui/watch.tree | sed -n "s/.*label: '\([0-9.]*\)'.*/\1/p" | head -1)
+	say "watch bolus screen shows ${shown:-?} U"
+	t0=$(now)
 	ui watch tap Bolus
 	ui watch double "Turn Digital"
+	wait_for watch "$t0" 'ACCEPTED by pod' 120
+	# A pod gives a bolus over time (0.05 U every 2 s): let it finish before the next step.
+	sleep $(awk -v b="$1" 'BEGIN { printf "%d", b * 40 + 10 }')
 }
 
 # The phone's bolus screen: the amount, Deliver, and the Simulator's passcode if it asks for one.
 phone_bolus() { # units
+	dismiss_alert
 	ui phone tap Bolus
 	ui phone tap textField_Bolus
 	ui phone type "$1"
@@ -194,18 +201,32 @@ reset() {
 	running phone || "$SIM" launch phone >/dev/null
 	running watch || "$SIM" launch watch >/dev/null
 	drivers
+	dismiss_alert
 	watch_main
 	for i in 1 2 3; do
-		shows watch "Start Sport Mode" && return 0
+		shows watch "Start Sport Mode" && { watch_reads_sensor; return 0; }
 		if shows watch "Start Anyway"; then ui watch tap Cancel
 		elif shows watch End; then
 			say "a loan is running: the phone takes the pod back"
 			t=$(now); take_back; wait_for watch "$t" 'CLOSED — ' 120 >/dev/null
 		fi
-		"$UI" watch wait 60 "Start Sport Mode" >/dev/null 2>&1 && return 0
+		"$UI" watch wait 60 "Start Sport Mode" >/dev/null 2>&1 && { watch_reads_sensor; return 0; }
 		watch_main
 	done
 	abort "could not get the watch back to Start"
+}
+
+# The watch reads the sensor itself during a loan: if it has not in the last 7 minutes, relaunch
+# its app and wait for a reading (a restarted simulator can leave the watch's link without a sensor).
+watch_reads_sensor() {
+	local since
+	since=$(date -v-7M +%T)
+	[ -n "$(lines watch "$since" 'INGEST src=direct-G7')" ] && return 0
+	say "the watch has not read the sensor for 7 minutes: relaunching its app"
+	since=$(now)
+	"$SIM" launch watch >/dev/null
+	"$UI" ensure watch >/dev/null
+	wait_for watch "$since" 'INGEST src=direct-G7' 420
 }
 
 # Exactly n lines matching regex since a time.
@@ -244,9 +265,12 @@ expect_between_none() { # side since from until forbidden what
 }
 
 # Dismiss the phone's alert, if one is up.
+# (The Simulator app cannot have critical alerts, so "Turn On Alarms" comes up now and then.)
 dismiss_alert() {
 	local b
-	for b in OK Dismiss; do shows phone "$b" && { "$UI" phone tap "$b" >/dev/null 2>&1; return; }; done
+	"$UI" phone tree >/dev/null 2>&1 || return 0
+	grep -q "Alert," /tmp/sportmode-ui/phone.tree || return 0
+	for b in Close OK Dismiss; do shows phone "$b" && { "$UI" phone tap "$b" >/dev/null 2>&1; return 0; }; done
 	return 0
 }
 
@@ -266,6 +290,7 @@ age_watch_ledger() { # file hours
 
 # Carbs entered on the phone, saved without a bolus.
 phone_carbs() { # grams
+	dismiss_alert
 	ui phone tap "Add Carbs"
 	ui phone type "$1"
 	ui phone tap button_Continue

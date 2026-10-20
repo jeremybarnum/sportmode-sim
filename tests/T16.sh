@@ -12,9 +12,7 @@ reset
 say "Start on the watch; 0.5 U bolus on the watch"
 start=$(now)
 start_loan "$start"
-b=$(now)
 watch_bolus 0.5
-wait_for watch "$b" 'ACCEPTED by pod' 120
 
 say "Watch off; nothing touched (up to 15 minutes)"
 off=$(now)

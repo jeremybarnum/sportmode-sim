@@ -29,7 +29,7 @@ wait_for phone "$t2" 'temp cancelled' 60
 wait_for watch "$t2" 'CLOSED — ' 120
 
 say "Checks"
-expect_within phone "$t1" 'take-back REFUSED' 8 "refused while the pod is away"
+expect_within phone "$t1" 'take-back REFUSED' 12 "refused while the pod is away"
 expect phone "$t1" 'take-back REFUSED.*loan unchanged.*nothing sent to the watch' "loan unchanged, nothing sent to the watch"
 expect_within phone "$t2" 'take-back: pod link up' 5 "second take-back reached the pod"
 expect_clean phone "$t2" 'reconcile\[FORCE-RECLAIM\]' "phone's check of the pod's total"

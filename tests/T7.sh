@@ -14,9 +14,7 @@ say "Phone out of reach; offline start; 0.5 U bolus on the watch"
 sim phone away
 start=$(now)
 offline_start "$start"
-b=$(now)
 watch_bolus 0.5
-wait_for watch "$b" 'ACCEPTED by pod' 120
 
 say "Three minutes; then the phone comes back and reads"
 sleep 180

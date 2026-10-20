@@ -11,7 +11,7 @@ reset
 say "Start on the watch, one loop cycle"
 start=$(now)
 start_loan "$start"
-wait_for watch "$start" 'CYCLE VERDICT' 400
+wait_for watch "$start" 'CYCLE VERDICT computed=ok' 400
 
 say "Force-quit and reopen the watch app"
 q=$(now)
