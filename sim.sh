@@ -21,7 +21,7 @@
 #   sim.sh pod slow <s>     the pod's next state-changing command waits <s> before it is accepted
 #   sim.sh link slow <s>|normal  each live phone–watch message arrives <s> late, or on time again
 #   sim.sh link down|up     the phone–watch link alone cut, each still in reach of the pod and sensor
-#   sim.sh phone radio-off|radio-on  the phone's Bluetooth off: out of reach of the pod and sensor, link up
+#   sim.sh phone radio-off|radio-on  Bluetooth off on the phone (it reads powered off), the watch link up
 #   sim.sh watch off|on     shut the watch Simulator down; boot it and launch the watch app
 #   sim.sh quit phone|watch end the app (a force quit)
 #   sim.sh range            what is out of range now
@@ -47,7 +47,7 @@ sims_file=$here/.sims${RIG:+-$RIG}
 
 # The simulators, at the commits this harness was tested with (LoopKit/g7sim and LoopKit/pod with
 # the changes proposed upstream; g7sim builds ImpossiBLE with its own patches).
-G7SIM=https://github.com/jeremybarnum/g7sim; G7SIM_COMMIT=7cff4f8
+G7SIM=https://github.com/jeremybarnum/g7sim; G7SIM_COMMIT=7c3c05d
 POD=https://github.com/jeremybarnum/pod;     POD_COMMIT=3823843
 
 [ -f "$sims_file" ] && . "$sims_file"
@@ -223,6 +223,10 @@ range() { # app|provider value in(0|1)
 	curl -s -m 3 -X POST "localhost${MUX_API}/range?$1=$2&in=$3"; echo
 }
 
+power() { # app on(0|1)
+	curl -s -m 3 -X POST "localhost${MUX_API}/power?app=$1&on=$2"; echo
+}
+
 # The phone and the watch are parted while the phone is away or the watch is off (the paired
 # Simulators keep reporting a shut-down watch as reachable).
 link() {
@@ -246,11 +250,11 @@ linkcmd() {
 phone() {
 	case "$1" in
 	away) mkdir -p "$run"; touch "$run/phone-away"; link; range app "$PHONE_ID" 0 ;;
-	back) rm -f "$run/phone-away" "$run/phone-radio-off"; link; range app "$PHONE_ID" 1 ;;
+	back) rm -f "$run/phone-away"; link; range app "$PHONE_ID" 1; [ -e "$run/phone-radio-off" ] && { rm -f "$run/phone-radio-off"; power "$PHONE_ID" 1; } || true ;;
 	# Bluetooth off on the phone: out of reach of the pod and sensor, while the watch link stays
 	# up (as over Wi-Fi).
-	radio-off) mkdir -p "$run"; touch "$run/phone-radio-off"; range app "$PHONE_ID" 0 ;;
-	radio-on) rm -f "$run/phone-radio-off"; [ -e "$run/phone-away" ] || range app "$PHONE_ID" 1 ;;
+	radio-off) mkdir -p "$run"; touch "$run/phone-radio-off"; power "$PHONE_ID" 0 ;;
+	radio-on) rm -f "$run/phone-radio-off"; power "$PHONE_ID" 1; [ -e "$run/phone-away" ] && range app "$PHONE_ID" 0 || true ;;
 	*) echo "phone away|back|radio-off|radio-on" >&2; exit 2 ;;
 	esac
 }
