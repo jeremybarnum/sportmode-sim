@@ -336,6 +336,10 @@ reset() {
 	"$SIM" link up >/dev/null 2>&1 || true
 	"$SIM" link normal >/dev/null 2>&1 || true
 	[ -e "$RUN/watch-off" ] && "$SIM" watch on >/dev/null 2>&1
+	if [ -e "$RUN/watch-rebooted" ]; then
+		say "the watch Simulator rebooted since the last reset: the phone app restarts so the watch's queued transfers arrive"
+		"$SIM" launch phone >/dev/null; rm -f "$RUN/watch-rebooted"
+	fi
 	running phone || { say "the phone app is not running with the Bluetooth stand-in: launching it"; "$SIM" launch phone >/dev/null; }
 	running watch || { say "the watch app is not running with the Bluetooth stand-in: launching it"; "$SIM" launch watch >/dev/null; }
 	drivers

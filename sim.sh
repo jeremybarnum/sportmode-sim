@@ -280,7 +280,10 @@ watch() {
 	# The link comes up with the watch app, not with the watch: the paired Simulators accept a live
 	# message for an app not yet running and lose it, where a device would fail it to the queue.
 	on) xcrun simctl boot "$WATCH" 2>/dev/null || true
-		xcrun simctl bootstatus "$WATCH" -b >/dev/null; launch watch; rm -f "$run/watch-off"; link ;;
+		xcrun simctl bootstatus "$WATCH" -b >/dev/null; launch watch; rm -f "$run/watch-off"; link
+		# After the watch Simulator reboots, the phone app's queued transfers from the watch stop
+		# arriving until the phone app is restarted (a Simulator quirk): the next reset does it.
+		touch "$run/watch-rebooted" ;;
 	*) echo "watch off|on" >&2; exit 2 ;;
 	esac
 }
@@ -329,9 +332,12 @@ applog) applog "${2:-}" ;;
 bundle) case "${2:-}" in phone) echo "$PHONE_ID" ;; watch) echo "$WATCH_ID" ;; *) exit 2 ;; esac ;;
 quit) quit "${2:-}" ;;
 since)
-	# A time of day later than now is yesterday's: a window that crosses midnight keeps its lines.
+	# A time of day more than an hour after now is yesterday's: a window that crosses midnight keeps
+	# its lines (a time a moment ahead of the clock is still today's).
 	f=$(applog "${2:-}"); t=${3:-00:00:00}; day=$(date +%F)
-	[ "${t%%.*}" \> "$(date +%T)" ] && day=$(date -v-1d +%F)
+	if [ "$(echo "${t%%.*} $(date +%T)" | awk '{ split($1, a, ":"); split($2, b, ":"); print (a[1]*3600 + a[2]*60 + a[3]) - (b[1]*3600 + b[2]*60 + b[3]) }')" -gt 3600 ]; then
+		day=$(date -v-1d +%F)
+	fi
 	# The phone's earlier launches first, as kept at each relaunch.
 	k=; [ "$2" = phone ] && [ -f "$run/phone-earlier.log" ] && k=$run/phone-earlier.log
 	awk -v t="$day $t" '($1 " " $2) >= t' $k "$f" | grep -E "${4:-.}" | cut -c12-260 ;;
