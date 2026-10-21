@@ -45,7 +45,10 @@ jobs:
 
       - name: Xcode and xcodegen
         run: |
-          sudo xcode-select --switch /Applications/Xcode_26.4.app/Contents/Developer
+          # The newest Xcode installed, for the newest Simulator runtimes (sim.sh sims takes those).
+          x=$(ls -d /Applications/Xcode_[0-9]*.app | sort -V | tail -1)
+          sudo xcode-select --switch "$x/Contents/Developer"
+          xcodebuild -version
           command -v xcodegen >/dev/null || brew install xcodegen
           go version
           sysctl -n hw.ncpu hw.memsize machdep.cpu.brand_string
@@ -54,7 +57,7 @@ jobs:
       - name: LoopWorkspace with the Simulator aids
         run: |
           git clone --quiet https://github.com/jeremybarnum/LoopWorkspace "$WORKSPACE"
-          ./tree.sh "$WORKSPACE" "$WORKSPACE_BRANCH"
+          ./tree.sh "$WORKSPACE_BRANCH"   # WORKSPACE names the checkout
 
       - name: Simulators, mux and libraries
         run: ./sim.sh build
@@ -112,6 +115,7 @@ jobs:
       - name: Diagnostics
         if: failure()
         run: |
+          set +e
           for s in pod g7 mux; do echo "::group::$s log"; ./sim.sh log $s 80 2>&1; echo "::endgroup::"; done
           for s in phone watch; do echo "::group::$s app log"; ./sim.sh log $s 120 2>&1; echo "::endgroup::"; done
           for s in phone watch; do echo "::group::$s driver"; tail -40 build/ui-$s.log 2>&1; echo "::endgroup::"; done
