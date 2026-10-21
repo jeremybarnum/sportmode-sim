@@ -104,4 +104,6 @@ expect_none_between watch "$tb" "$tb2" 'REVOKED' "(c) the loan continued during 
 expect watch "$tb2" 'REVOKED' "(c) the Take Back after the bolus took the pod"
 expect watch "$td" 'HAND-BACK refused at the release — a bolus is being given' "(b3) the release refused for a bolus sent while the hand-back waited"
 expect_none_between watch "$td" "$td2" 'drain complete|CLOSED — ' "(b3) the loan continued, the pod stayed on the watch"
+expect phone "$td" 'offer RX .*released=interim.*state=loaned' "(b3) the phone took the interim offer and stayed aside"
+expect_none_between phone "$td" "$td2" 'released=final|settle|reclaim VERIFIED|reconcile\[AUTHORITATIVE\]' "(b3) the phone did not take the pod back before the second End"
 verdict
