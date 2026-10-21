@@ -19,6 +19,7 @@
 #   sim.sh phone away|back  the phone's radios off and on: no watch, no pod, no sensor
 #   sim.sh pod away|back    the pod out of reach of both, and back
 #   sim.sh pod slow <s>     the pod's next state-changing command waits <s> before it is accepted
+#   sim.sh link slow <s>|normal  each live phone–watch message arrives <s> late, or on time again
 #   sim.sh watch off|on     shut the watch Simulator down; boot it and launch the watch app
 #   sim.sh quit phone|watch end the app (a force quit)
 #   sim.sh range            what is out of range now
@@ -193,7 +194,18 @@ range() { # app|provider value in(0|1)
 # Simulators keep reporting a shut-down watch as reachable).
 link() {
 	mkdir -p "$run"
-	if [ -e "$run/phone-away" ] || [ -e "$run/watch-off" ]; then echo down >"$LINK"; else rm -f "$LINK"; fi
+	if [ -e "$run/phone-away" ] || [ -e "$run/watch-off" ]; then echo down >"$LINK"
+	elif [ -s "$run/link-slow" ]; then echo "slow $(cat "$run/link-slow")" >"$LINK"
+	else rm -f "$LINK"; fi
+}
+
+# A sluggish link: each live message arrives N seconds late (still reachable), or on time again.
+linkcmd() {
+	case "$1" in
+	slow) mkdir -p "$run"; echo "${2:-4}" >"$run/link-slow"; link; echo "link: live messages ${2:-4} s late" ;;
+	normal) rm -f "$run/link-slow"; link; echo "link: live messages on time" ;;
+	*) echo "link slow <s>|normal" >&2; exit 2 ;;
+	esac
 }
 
 phone() {
@@ -267,6 +279,7 @@ since) f=$(applog "${2:-}"); awk -v t="${3:-00:00:00}" '$2 >= t' "$f" | grep -E 
 phone) phone "${2:-}" ;;
 pod) pod "${2:-}" "${3:-}" ;;
 watch) watch "${2:-}" ;;
+link) linkcmd "${2:-}" "${3:-}" ;;
 range) curl -s -m 3 "localhost${MUX_API}/range"; echo; [ -f "$LINK" ] && echo "link: $(cat "$LINK")" || echo "link: up" ;;
 *) sed -n 2,27p "$0" | sed 's/^# \{0,1\}//'; exit 2 ;;
 esac

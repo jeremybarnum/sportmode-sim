@@ -244,6 +244,15 @@ watch_bolus_send() { # units (a multiple of 0.5)
 	ui watch double "Turn Digital"
 }
 
+# A small watch bolus as fast as the taps go: one "+" from whatever the screen shows, no zeroing.
+watch_bolus_quick() {
+	watch_page 1
+	ui watch tap bolus
+	ui watch tap "+"
+	ui watch tap Bolus
+	ui watch double "Turn Digital"
+}
+
 # A watch bolus started and left running: the same taps, without the wait for delivery.
 watch_bolus_start() { # units (a multiple of 0.5)
 	local n t0

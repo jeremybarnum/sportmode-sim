@@ -3,8 +3,9 @@
 // Paired Simulators keep WatchConnectivity up while both apps run; there is no
 // Bluetooth or Wi-Fi to turn off. Injected into both apps (DYLD_INSERT_LIBRARIES,
 // beside ImpossiBLE), this library reads a control file shared by the two
-// Simulators: "down" puts the phone out of the watch's reach, anything else
-// (or no file) leaves the link as it is. While the link is down:
+// Simulators: "down" puts the phone out of the watch's reach, "slow N" delivers
+// each live message N seconds late (a sluggish link, still reachable), anything
+// else (or no file) leaves the link as it is. While the link is down:
 //   - isReachable reads NO, and the delegate hears sessionReachabilityDidChange;
 //   - sendMessage and sendMessageData fail at once with "not reachable";
 //   - what arrives through the queued channels (user info, application context,
@@ -30,13 +31,29 @@
 static NSString *controlPath;
 static NSString *outbox, *inbox, *filesDir;   // the queued channels' folders
 static BOOL linkDown;
+static double latency;                      // "slow N": seconds each incoming live message waits
+static dispatch_queue_t slowQueue;          // where they wait, in arrival order
 static dispatch_queue_t heldQueue;          // the held deliveries, in arrival order
 static NSMutableArray<dispatch_block_t> *held;
 static NSDictionary *deliveredContext;      // the last application context the app was given
 
 static BOOL readDown(void) {
-    NSString *s = [NSString stringWithContentsOfFile:controlPath encoding:NSUTF8StringEncoding error:nil];
-    return [[s stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceAndNewlineCharacterSet] isEqualToString:@"down"];
+    NSString *s = [[NSString stringWithContentsOfFile:controlPath encoding:NSUTF8StringEncoding error:nil]
+                   stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceAndNewlineCharacterSet];
+    double slow = [s hasPrefix:@"slow "] ? [[s substringFromIndex:5] doubleValue] : 0;
+    if (slow != latency) NSLog(@"SimLink: live messages %@", slow > 0 ? [NSString stringWithFormat:@"%.1f s late", slow] : @"on time");
+    latency = slow;
+    return [s isEqualToString:@"down"];
+}
+
+// A live message, now or after the link's latency.
+static void arrive(dispatch_block_t block) {
+    if (latency <= 0) { block(); return; }
+    double wait = latency;
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(wait * NSEC_PER_SEC)), slowQueue, ^{
+        if (linkDown) { NSLog(@"SimLink: late live message dropped, link down"); return; }
+        block();
+    });
 }
 
 #pragma mark - A file held across the gap
@@ -95,22 +112,22 @@ static void deliver(dispatch_block_t block) {
 
 static void sl_message(id self, SEL _cmd, WCSession *session, NSDictionary *message) {
     if (linkDown) { NSLog(@"SimLink: live message dropped, link down"); return; }
-    ((void (*)(id, SEL, id, id))appMessage)(self, _cmd, session, message);
+    arrive(^{ ((void (*)(id, SEL, id, id))appMessage)(self, _cmd, session, message); });
 }
 
 static void sl_messageReply(id self, SEL _cmd, WCSession *session, NSDictionary *message, id reply) {
     if (linkDown) { NSLog(@"SimLink: live message dropped, link down"); return; }
-    ((void (*)(id, SEL, id, id, id))appMessageReply)(self, _cmd, session, message, reply);
+    arrive(^{ ((void (*)(id, SEL, id, id, id))appMessageReply)(self, _cmd, session, message, reply); });
 }
 
 static void sl_data(id self, SEL _cmd, WCSession *session, NSData *data) {
     if (linkDown) { NSLog(@"SimLink: live message dropped, link down"); return; }
-    ((void (*)(id, SEL, id, id))appData)(self, _cmd, session, data);
+    arrive(^{ ((void (*)(id, SEL, id, id))appData)(self, _cmd, session, data); });
 }
 
 static void sl_dataReply(id self, SEL _cmd, WCSession *session, NSData *data, id reply) {
     if (linkDown) { NSLog(@"SimLink: live message dropped, link down"); return; }
-    ((void (*)(id, SEL, id, id, id))appDataReply)(self, _cmd, session, data, reply);
+    arrive(^{ ((void (*)(id, SEL, id, id, id))appDataReply)(self, _cmd, session, data, reply); });
 }
 
 static void sl_userInfo(id self, SEL _cmd, WCSession *session, NSDictionary *userInfo) {
@@ -339,6 +356,7 @@ static void SimLinkLoad(void) {
         [NSFileManager.defaultManager createDirectoryAtPath:dir withIntermediateDirectories:YES attributes:nil error:nil];
     }
     heldQueue = dispatch_queue_create("SimLink.held", DISPATCH_QUEUE_SERIAL);
+    slowQueue = dispatch_queue_create("SimLink.slow", DISPATCH_QUEUE_SERIAL);
     held = [NSMutableArray array];
     origIsReachable = swap(@selector(isReachable), (IMP)sl_isReachable);
     origSendMessage = swap(@selector(sendMessage:replyHandler:errorHandler:), (IMP)sl_sendMessage);
