@@ -20,6 +20,7 @@
 #   sim.sh pod away|back    the pod out of reach of both, and back
 #   sim.sh pod slow <s>     the pod's next state-changing command waits <s> before it is accepted
 #   sim.sh link slow <s>|normal  each live phone–watch message arrives <s> late, or on time again
+#   sim.sh link down|up     the phone–watch link alone cut, each still in reach of the pod and sensor
 #   sim.sh watch off|on     shut the watch Simulator down; boot it and launch the watch app
 #   sim.sh quit phone|watch end the app (a force quit)
 #   sim.sh range            what is out of range now
@@ -208,7 +209,7 @@ range() { # app|provider value in(0|1)
 # Simulators keep reporting a shut-down watch as reachable).
 link() {
 	mkdir -p "$run"
-	if [ -e "$run/phone-away" ] || [ -e "$run/watch-off" ]; then echo down >"$LINK"
+	if [ -e "$run/phone-away" ] || [ -e "$run/watch-off" ] || [ -e "$run/link-down" ]; then echo down >"$LINK"
 	elif [ -s "$run/link-slow" ]; then echo "slow $(cat "$run/link-slow")" >"$LINK"
 	else rm -f "$LINK"; fi
 }
@@ -218,7 +219,9 @@ linkcmd() {
 	case "$1" in
 	slow) mkdir -p "$run"; echo "${2:-4}" >"$run/link-slow"; link; echo "link: live messages ${2:-4} s late" ;;
 	normal) rm -f "$run/link-slow"; link; echo "link: live messages on time" ;;
-	*) echo "link slow <s>|normal" >&2; exit 2 ;;
+	down) mkdir -p "$run"; touch "$run/link-down"; link; echo "link: down (phone and watch each still in reach of the pod and sensor)" ;;
+	up) rm -f "$run/link-down"; link; echo "link: up" ;;
+	*) echo "link slow <s>|normal|down|up" >&2; exit 2 ;;
 	esac
 }
 

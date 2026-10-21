@@ -23,20 +23,20 @@ does today and change when the ruling is built.
 
 | Test | What it proves | State |
 |---|---|---|
-| P1 | Ordinary loan: takeover, the watch reads through the Dexcom app's link and loops, End, a clean audit | Scripted |
-| P2 | Takeover fails with the pod out of reach: the lease runs out, takeoverFailed, the phone takes the pod back silently | *pending: 60 s lease* |
-| P3 | The grant does not reach the watch: the phone's query at +20 s takes the pod back; a watch silent through the takeover: "Watch Loan Not Confirmed" at 5 min | To script |
-| P4 | A Start interrupted by quitting the watch app: takeoverFailed at relaunch, the phone takes the pod back | To script |
-| P5 | The watch app relaunched mid-loan ends the loan: "Sport Mode Ended", the recovered offer resent every 15 s until acknowledged, the phone takes the pod back | To script (decided: relaunch ends the loan) |
+| P1 | Ordinary loan: takeover, the watch reads through the Dexcom app's link and loops, End, a clean audit | Scripted; passes 10-21 |
+| P2 | Takeover fails with the pod out of reach: the lease runs out, takeoverFailed, the phone takes the pod back silently | Scripted; *pending: 60 s lease* |
+| P3 | The grant does not reach the watch: the phone's query at +20 s takes the pod back; a watch silent through the takeover: "Watch Loan Not Confirmed" at 5 min | Scripted: the silent watch; the lost grant needs a link that drops one message |
+| P4 | A Start interrupted by quitting the watch app: takeoverFailed at relaunch, the phone takes the pod back | Scripted; passes 10-21 |
+| P5 | The watch app relaunched mid-loan ends the loan: "Sport Mode Ended", the recovered offer resent every 15 s until acknowledged, the phone takes the pod back | Scripted (decided: relaunch ends the loan) |
 | P6 | The same with the phone unable to reach the pod (its Bluetooth off) | Needs a harness addition; *to be fixed in this build* |
 | P7 | A silent watch: "Watch Not Reporting" at about 20, 40, 60 min while the phone has fresh glucose; none while it has not; no take-back on a timer | *pending: take on silence vs warn* |
-| P8 | Take Back, watch live: revoke, resend at +10 s, force at +25 s if unanswered; dosing paused until the audit rules | *pending: single-path Take Back* |
-| P9 | Take Back, watch silent past 330 s: force at once | *pending: single-path Take Back* |
-| P10 | Take Back with the pod out of reach: "Watch Session Unverified" at 5 min, the loop opens | *pending: single-path Take Back* |
-| P11 | Offline start with the phone away, then the reunion and the retro-acknowledgement | To script |
-| P12 | Start with the phone unreachable waits 8 s before offering the offline start | To script |
+| P8 | Take Back, watch live: revoke, resend at +10 s, force at +25 s if unanswered; dosing paused until the audit rules | Scripted; *pending: single-path Take Back* |
+| P9 | Take Back, watch silent past 330 s: force at once | Scripted; *pending: single-path Take Back* |
+| P10 | Take Back with the pod out of reach: "Watch Session Unverified" at 5 min, the loop opens | Scripted; *pending: single-path Take Back* |
+| P11 | Offline start with the phone away, then the reunion and the retro-acknowledgement | Scripted |
+| P12 | Start with the phone unreachable waits 8 s before offering the offline start | Scripted |
 | P13 | The watch's standing copy refreshed after an insulin and a carb entry on the phone; the status probe on the immediate channel | To script |
-| P14 | A watch bolus and carbs during a loan; End refused during a watch bolus; Take Back during a bolus | To script |
+| P14 | A watch bolus and carbs during a loan; End refused during a watch bolus; Take Back during a bolus | Scripted (the bolus parts) |
 | P15 | The predicted-low warning on the watch; Missed Meal Notifications off and on | Partly: needs scripted glucose |
 | P16 | A hand-back that gives up: "End didn't go through" and the loan carries on | When built |
 

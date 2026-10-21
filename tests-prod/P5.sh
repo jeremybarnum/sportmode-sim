@@ -21,8 +21,8 @@ drivers
 wait_for phone "$qa" 'reclaim VERIFIED' 180
 
 say "(b) A new loan; the phone out of reach; the watch app ends and opens again; the phone back after a minute"
-reset
 b=$(now)
+reset
 start_loan "$b"
 sleep 20
 sim phone away
@@ -37,12 +37,12 @@ sim phone back
 wait_for phone "$back" 'reclaim VERIFIED' 240
 
 say "Checks"
-expect watch "$qa" 'alert\] ISSUED .*sessionEnded' "(a) the relaunched watch ended the loan (Sport Mode Ended)"
-expect watch "$qa" 'hand-back offer attempt' "(a) the recovered offer went out"
-expect phone "$qa" 'offer RX .*released=final' "(a) the phone took the recovered offer"
-expect phone "$qa" 'reclaim VERIFIED' "(a) the phone took the pod back"
+expect_between watch "$qa" "$b" 'alert\] ISSUED .*sessionEnded' "(a) the relaunched watch ended the loan (Sport Mode Ended)"
+expect_between watch "$qa" "$b" 'hand-back offer attempt' "(a) the recovered offer went out"
+expect_between phone "$qa" "$b" 'offer RX .*released=final' "(a) the phone took the recovered offer"
+expect_between phone "$qa" "$b" 'reclaim VERIFIED' "(a) the phone took the pod back"
 expect_clean phone "$qa" 'reconcile\[AUTHORITATIVE\]' "(a) the phone's audit"
-expect_none watch "$qa" 'ACTIVE — epoch' "(a) no resume after the relaunch"
+expect_none_between watch "$qa" "$b" 'ACTIVE — epoch' "(a) no resume after the relaunch"
 expect watch "$qb" 'iPhone UNREACHABLE|hand-back offer attempt [2-9]' "(b) the offers waited while the phone was away"
 expect_none_between phone "$qb" "$back" 'offer RX' "(b) nothing reached the phone while it was away"
 expect phone "$back" 'offer RX .*released=final' "(b) the offer landed when the phone was back"

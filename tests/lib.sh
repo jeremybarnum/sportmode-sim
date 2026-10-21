@@ -9,6 +9,7 @@ BAND=0.20      # an insulin check's residual counts as clean within ±BAND U
 # What differs between lines (another line's lib.sh sets these before sourcing this one): the phone
 # cell that opens the take-back sheet, and the watch line that says the pod has a manual bolus.
 TAKE_BACK_CELL=${TAKE_BACK_CELL:-Sport Mode}
+STATUS_SCREEN=${STATUS_SCREEN:-glucoseHUDView}   # an element only the phone's status screen shows
 BOLUS_ACCEPTED=${BOLUS_ACCEPTED:-MANUAL BOLUS .*ACCEPTED by pod}
 T0=$(date +%T) # the test's start: its logs are read from here
 failed=0
@@ -323,6 +324,8 @@ reset() {
 	say "Reset: everything in range, both apps up, no loan"
 	"$SIM" phone back >/dev/null 2>&1 || true
 	"$SIM" pod back >/dev/null 2>&1 || true
+	"$SIM" link up >/dev/null 2>&1 || true
+	"$SIM" link normal >/dev/null 2>&1 || true
 	[ -e "$RUN/watch-off" ] && "$SIM" watch on >/dev/null 2>&1
 	running phone || { say "the phone app is not running with the Bluetooth stand-in: launching it"; "$SIM" launch phone >/dev/null; }
 	running watch || { say "the watch app is not running with the Bluetooth stand-in: launching it"; "$SIM" launch watch >/dev/null; }
@@ -354,6 +357,13 @@ watch_reads_sensor() {
 	"$SIM" launch watch >/dev/null
 	"$UI" ensure watch >/dev/null
 	wait_for watch "$since" 'INGEST src=direct-G7' 420
+}
+
+# A line matching regex between two times (one part of a test, before the next part starts).
+expect_between() { # side from until regex what
+	local l
+	l=$(lines "$1" "$2" "$4" | awk -v u="$3" '$1 < u' | tail -1)
+	if [ -n "$l" ]; then pass "$5" "$l"; else fail "$5" "no $1 line /$4/ from $2 to $3"; fi
 }
 
 # Nothing matching regex between two times (a refusal's window, before the retry).
@@ -413,7 +423,7 @@ phone_home() {
 		fi
 		sleep 1
 	done
-	"$UI" phone wait 5 glucoseHUDView >/dev/null 2>&1 || say "the phone is not on its status screen" >&2
+	"$UI" phone wait 5 "$STATUS_SCREEN" >/dev/null 2>&1 || say "the phone is not on its status screen" >&2
 }
 
 # Dismiss the phone's alert, if one is up.
