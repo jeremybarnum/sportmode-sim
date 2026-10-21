@@ -23,12 +23,21 @@ take_back
 wait_for watch "$tb" 'REVOKED' 60
 wait_for phone "$tb" 'offer RX .*released=final' 60
 epoch1=$(lines phone "$tb" 'offer RX .*released=final' | head -1 | sed -n 's/.*\] e\([0-9]*\) .*/\1/p')
-say "The settle runs out (5 minutes and a half)"
-sleep 330
+say "A Start while the take-back's insulin check is pending: refused"
+sleep 30
+watch_close_sheets
+r=$(now)
+tap_start >/dev/null || true
+sleep 10
+watch_shows_text "still checking the last session.s insulin" && pending_note=yes || pending_note=no
+
+say "The settle runs out (5 minutes and a half from the take-back)"
+sleep 270
 
 say "The pod back; a new loan, ended on the watch"
 sim pod back
 reset
+closed_loop_on
 s2=$(now)
 start_loan "$s2"
 wait_for watch "$s2" 'cycle OK' 360
@@ -39,7 +48,10 @@ wait_for phone "$e2" 'reclaim VERIFIED' 180
 sleep 5
 
 say "Checks"
-expect_between phone "$tb" "$s2" "e$epoch1 (reconcile\\[AUTHORITATIVE\\]|R37: audit NEVER RAN)" "the take-back's audit (e$epoch1) concluded, verified or reported unverified, before the next loan"
+expect phone "$r" 'grant REFUSED — this session.s insulin check is still pending' "a Start while the check was pending was refused"
+[ "$pending_note" = yes ] && pass "the watch said the iPhone is still checking the last session's insulin" "" || fail "the watch said the iPhone is still checking the last session's insulin" "not on the glance"
+expect_between phone "$tb" "$s2" "e$epoch1 (reconcile\\[AUTHORITATIVE\\]|R3[37]: audit NEVER RAN)" "the take-back's audit (e$epoch1) concluded, verified or reported unverified, before the next loan"
+expect_between phone "$tb" "$s2" 'R33: audit NEVER RAN \(handback\)' "the answered take-back's check ended unverified at the settle limit"
 l=$(lines phone "$s2" "e$epoch1 reconcile\\[AUTHORITATIVE\\]" | head -1)
 if [ -z "$l" ]; then pass "the take-back's audit (e$epoch1) was not run on the next loan's reading" ""
 else fail "the take-back's audit (e$epoch1) was not run on the next loan's reading" "$l"; fi
