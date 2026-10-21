@@ -102,6 +102,12 @@ Scripted: T1, T3–T11, T13, T16–T19, T22. T9's six hours are simulated by agi
 reading while it is off. Not scripted: T2 (no way to cause it), T12 (opportunistic), T14 (a tap
 within a second of the watch waking), T15 (a clarifying test for the hardware emulator).
 
+`tests/run.sh quick` runs T1, T5 and T13, a check between review rounds that catches most breakage:
+an ordinary loan (takeover, records, hand-back, audit), a take-back with the pod out of reach (settle,
+verification, stop), and an offline start whose take stalls (the escalation to a scan). It took 4 min
+14 s at scale 5 (T1 1:13, T5 0:35, T13 2:26). Tests named after it run too: `quick T22`. The full run
+stays the gate before a pull request.
+
 A fresh watch app gets the phone's standing copy (for an offline start) only after its first
 normal Start, so run a test with a normal Start (T1 or T3) before T6, T7, T10, T13 and T19;
 `run.sh` with no argument runs them in number order, which does that.

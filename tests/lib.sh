@@ -451,15 +451,18 @@ phone_home() {
 # Dismiss the phone's alert, if one is up.
 # (The Simulator app cannot have critical alerts, so "Turn On Alarms" comes up now and then.)
 dismiss_alert() {
-	local b
+	local b pid
 	"$UI" phone tree >/dev/null 2>&1 || return 0
 	if grep -q "Alert," /tmp/sportmode-ui/phone.tree; then
 		for b in Close OK Dismiss; do shows phone "$b" && { "$UI" phone tap "$b" >/dev/null 2>&1; return 0; }; done
 	fi
 	# Newer builds put "Turn On Alarms" where the element tree does not reach. It comes up only
-	# with the "Alarms are turned OFF" banner: tap where its Close is, and if nothing was there,
-	# the tap opened the insulin chart under it: go back.
+	# with the "Alarms are turned OFF" banner, once per launch of the app: tap where its Close is
+	# once, and if nothing was there, the tap opened the insulin chart under it: go back.
 	grep -q "Alarms are turned OFF" /tmp/sportmode-ui/phone.tree || return 0
+	pid=$(grep -o "pid: [0-9]*" /tmp/sportmode-ui/phone.tree | head -1)
+	[ "$pid" = "$(cat "$RUN/alarms-closed" 2>/dev/null)" ] && return 0
+	echo "$pid" >"$RUN/alarms-closed"
 	"$UI" phone tapxy 127 565 >/dev/null 2>&1
 	sleep 1
 	shows phone BackButton && "$UI" phone tap BackButton >/dev/null 2>&1

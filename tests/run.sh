@@ -1,7 +1,7 @@
 #!/bin/sh
 # Runs bench test scripts one after another, unattended: tests/run.sh T1 T3 (no argument: all of
-# them). Each test's output goes to build/results/<run>/<test>.log; a summary is printed at the end
-# and kept in summary.txt. The simulators and both apps must be running (sim.sh start, launch).
+# them; quick: T1 T5 T13, below). Each test's output goes to build/results/<run>/<test>.log; a summary
+# is printed at the end and kept in summary.txt. The simulators and both apps must be running (sim.sh start, launch).
 set -u
 here=$(cd "$(dirname "$0")" && pwd)
 # One run at a time: two share one tap driver, one mux and one Simulator pair, and corrupt each
@@ -19,6 +19,10 @@ tests=${TESTS_DIR:-$here}
 dir=$here/../build/results/${RIG:+$RIG-}$(date +%Y%m%d-%H%M%S)
 mkdir -p "$dir"
 [ $# -gt 0 ] || set -- $(ls "$tests" | sed -n 's/^\([A-Z][0-9]*\)\.sh$/\1/p' | sort -k 1.2 -n)
+# quick: a check between review rounds, the full run stays the gate. T1 an ordinary loan (takeover,
+# records, hand-back, audit), T5 a take-back (settle, verification, stop), T13 an offline start
+# whose take stalls (escalation). Tests named after it run too: quick T22.
+[ "$1" = quick ] && { shift; set -- T1 T5 T13 "$@"; }
 for t in "$@"; do
 	printf '%s  %s ...\n' "$(date +%T)" "$t"
 	if "$tests/$t.sh" >"$dir/$t.log" 2>&1; then r=PASS; else r=FAIL; fi

@@ -72,7 +72,6 @@ say "a new loan; (b3) End, then a watch bolus asked for while the hand-back wait
 # after the End: the bolus is asked for in between, and the watch must refuse it.
 d0=$(now)
 start_loan "$d0"
-not_sent=$(python3 "$root/tests/notifications.py" "$WATCH_SIM_ID" delivered | grep -c "Bolus Not Sent")
 sim link slow 3
 watch_main
 td=$(now)
@@ -87,7 +86,13 @@ sim link normal
 wait_for watch "$td" 'CLOSED — ' 120
 wait_for phone "$td" 'reclaim VERIFIED' 120
 watch_close_sheets
-not_sent2=$(python3 "$root/tests/notifications.py" "$WATCH_SIM_ID" delivered | grep -c "Bolus Not Sent")
+# The Simulator writes its notification store a while after the notification shows: wait for it.
+# Counted by creation time: a "Bolus Not Sent" from an earlier run is replaced, not added to.
+for i in $(seq 15); do
+	not_sent=$(python3 "$root/tests/notifications.py" "$WATCH_SIM_ID" --since "$td" delivered | grep -c "	Bolus Not Sent	" || true)
+	[ "$not_sent" -gt 0 ] && break
+	sleep 2
+done
 
 say "Checks"
 expect phone "$a" 'grant REFUSED — this phone.s bolus is still being given' "(a) Start refused while the phone's bolus is being given"
@@ -107,7 +112,7 @@ expect_none_between watch "$tb" "$tb2" 'REVOKED' "(c) the loan continued during 
 expect watch "$tb2" 'REVOKED' "(c) the Take Back after the bolus took the pod"
 expect watch "$td" 'BOLUS REFUSED — .*an End is waiting' "(b3) the bolus asked for while the End waited was refused"
 expect_none watch "$td" 'MANUAL BOLUS .*enacting' "(b3) no bolus sent to the pod"
-[ "$not_sent2" -gt "$not_sent" ] && pass "(b3) the watch said \"Bolus Not Sent\"" "" || fail "(b3) the watch said \"Bolus Not Sent\"" "no new such notification"
+[ "$not_sent" -gt 0 ] && pass "(b3) the watch said \"Bolus Not Sent\"" "" || fail "(b3) the watch said \"Bolus Not Sent\"" "no new such notification"
 expect watch "$td" 'drain complete' "(b3) the End went on: the drain completed"
 expect watch "$td" 'CLOSED — ' "(b3) the End completed"
 expect phone "$td" 'reclaim VERIFIED' "(b3) the phone took the pod back"
