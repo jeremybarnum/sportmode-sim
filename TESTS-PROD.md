@@ -29,7 +29,7 @@ does today and change when the ruling is built.
 | P4 | A Start interrupted by quitting the watch app: takeoverFailed at relaunch, the phone takes the pod back | Scripted; passes 10-21 |
 | P5 | The watch app relaunched mid-loan ends the loan: "Sport Mode Ended", the recovered offer resent every 15 s until acknowledged, the phone takes the pod back | Passes 10-21 (decided: relaunch ends the loan) |
 | P6 | The same with the phone unable to reach the pod (its Bluetooth off) | Passes on a8ca78d (fixed: the drain keeps offering) |
-| P7 | A silent watch: "Watch Not Reporting" at about 20, 40, 60 min while the phone has fresh glucose; none while it has not; no take-back on a timer | Run on a8ca78d: warn only holds; warnings at 26, 41, 66 min of silence (a phone loop tick late); *pending: take on silence vs warn* |
+| P7 | A silent watch: "Watch Not Reporting" at about 20, 40, 60 min while the phone has fresh glucose; none while it has not; no take-back on a timer | Warn only, ruled for this build; on a6eec2a warnings expected at about 20, 40, 60 min (run on a8ca78d: 26, 41, 66) |
 | P8 | Take Back, watch live: revoke, resend at +10 s, force at +25 s if unanswered; dosing paused until the audit rules | Passes 10-21; *pending: single-path Take Back* |
 | P9 | Take Back, watch silent past 330 s: force at once | Passes 10-21; *pending: single-path Take Back* |
 | P10 | A forced Take Back (the watch not answering) with the pod out of reach: "Watch Session Unverified" at 5 min, the loop opens | Scripted; *pending: single-path Take Back* |
@@ -37,9 +37,9 @@ does today and change when the ruling is built.
 | P12 | Start with the phone unreachable waits 8 s before offering the offline start | Passes 10-21 |
 | P13 | The watch's standing copy refreshed after an insulin and a carb entry on the phone; the status probe on the immediate channel | Passes 10-21 |
 | P14 | A watch bolus and carbs during a loan; End refused during a watch bolus; Take Back during a bolus | Passes 10-21 (the bolus parts) |
-| P15 | The predicted-low warning on the watch; Missed Meal Notifications off and on | Scripted; needs Predicted Low Warnings on (and overnight, at night); falls 8 mg/dL a reading (10 reads as a compression low) |
+| P15 | The predicted-low warning on the watch; Missed Meal Notifications off and on | Passes on a6eec2a; needs Predicted Low Warnings on (and overnight, at night); falls 8 mg/dL a reading (10 reads as a compression low, by design) |
 | P16 | A hand-back that gives up: "End didn't go through" and the loan carries on | Passes on 2bf31c4 (the glance sentence fixed there) |
-| P17 | A Take Back the watch answers, the pod out of reach past the 5-minute settle, then a new loan: the take-back's audit concluded (verified or reported unverified) before the next loan; no false open loop | Scripted; fails on prod-126: the audit is left open (finding 10-21) |
+| P17 | A Take Back the watch answers, the pod out of reach past the 5-minute settle, then a new loan: the take-back's audit concluded (verified or reported unverified) before the next loan; no false open loop | Passes on a6eec2a (fixed: an unanswered check ends unverified at 5 min; Start refused while it is pending) |
 
 Not testable here: the workout keepalive's effect (the Simulator does not suspend apps as a watch
 does), the glance asking for the wrist up, radio contention and range, watchOS ending the app in the
