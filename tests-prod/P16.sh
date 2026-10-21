@@ -22,8 +22,7 @@ watch_main
 ea=$(now)
 ui watch tap End
 wait_for watch "$ea" "alert\\] ISSUED .*Couldn't End Sport Mode" 200
-ui watch tree
-grep -q "Sport Mode is still running\|still running on your watch\|Tap End again" /tmp/sportmode-ui/watch.tree && glance_a=yes || glance_a=no
+watch_shows_text "End didn.t go through|Tap End again" && glance_a=yes || glance_a=no
 sim link up
 sleep 5
 watch_main

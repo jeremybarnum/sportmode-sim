@@ -45,3 +45,19 @@ notifications() { # phone|watch [pending|delivered]
 	watch) python3 "$root/tests/notifications.py" "$WATCH_SIM_ID" ${2:-} ;;
 	esac
 }
+
+# The watch's glance shows text matching a regex within some seconds (an alert on top is closed
+# first, and the glance brought to the front).
+watch_shows_text() { # regex [seconds]
+	local end
+	end=$(($(date +%s) + ${2:-20}))
+	shows watch OK && "$UI" watch tap OK >/dev/null 2>&1
+	watch_close_sheets
+	watch_main
+	while :; do
+		"$UI" watch tree >/dev/null 2>&1
+		grep -Eq "$1" /tmp/sportmode-ui/watch.tree && return 0
+		[ "$(date +%s)" -ge "$end" ] && return 1
+		sleep 2
+	done
+}

@@ -23,8 +23,7 @@ sim launch watch
 drivers
 say "A minute with the phone unable to reach the pod; then its Bluetooth back"
 sleep 60
-ui watch tree
-grep -q "couldn.t take the pod back yet" /tmp/sportmode-ui/watch.tree && note=yes || note=no
+watch_shows_text "couldn.t take the pod back yet" && note=yes || note=no
 on=$(now)
 sim phone radio-on
 wait_for phone "$on" 'reclaim VERIFIED' 180
