@@ -1,0 +1,2 @@
+# The production line builds Sport Mode always; only the time scale's flag.
+conditions: SIMULATED_TIME_SCALE_ENABLED

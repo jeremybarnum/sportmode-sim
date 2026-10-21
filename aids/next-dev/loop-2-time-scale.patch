@@ -1,0 +1,156 @@
+From c2861bddff62e2502b3d04e7cd30e04ae1b40d25 Mon Sep 17 00:00:00 2001
+From: Jeremy Barnum <prefer not to supply>
+Date: Tue, 20 Oct 2026 14:36:19 -0400
+Subject: [PATCH] A time scale for Simulator testing, behind a build flag
+
+A Sport Mode test in the Simulators spends most of its time waiting on
+the apps' own clocks: Loop's 4.2-minute loop rate limit on the phone and
+the watch, the take-back's five-minute settle, the standing copy's
+half-hour refresh, and the cycle part of the watch's report overdue.
+With SIMULATED_TIME_SCALE_ENABLED in the build and SPORTMODE_TIME_SCALE
+in the app's environment, in the Simulator only, those waits are divided
+by the scale. Timestamps are untouched. The answer waits and the takeover
+lease are real latencies and stay as they are, and so does the minute's
+margin in the report overdue, so a resumed watch keeps its time for a
+first pod read.
+
+A device, a build without the flag, an app launched without the
+variable, and the unit tests all see a scale of 1; two tests pin that.
+A full run of the sixteen bench tests took 49 minutes at real time and
+30 at a scale of 5.
+
+Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>
+(cherry picked from commit 66d8a851ea0e6885f68ac301b8f49777616f7f4e)
+---
+ Loop/Managers/DeviceDataManager.swift         |  4 +--
+ .../PodLoanPhoneController+Grant.swift        |  4 +--
+ .../PodLoanPhoneController+Settle.swift       |  2 +-
+ LoopCore/PodLoan/LoanControl.swift            | 25 +++++++++++++++++--
+ LoopTests/LoanControlTests.swift              | 11 ++++++++
+ .../StockLoop/WatchLoopManager.swift          |  2 +-
+ 6 files changed, 40 insertions(+), 8 deletions(-)
+
+diff --git a/Loop/Managers/DeviceDataManager.swift b/Loop/Managers/DeviceDataManager.swift
+index 570d8de5..431582b7 100644
+--- a/Loop/Managers/DeviceDataManager.swift
++++ b/Loop/Managers/DeviceDataManager.swift
+@@ -652,7 +652,7 @@ final class DeviceDataManager {
+         //  - Keeping the interval floor stops a fast CGM (or the irregular ~2 min heartbeat) from
+         //    looping more often than once per ~5 min, matching the push path's rate limit.
+         let lastLoopCompleted = self.loopControl.lastLoopCompleted
+-        if storedNewGlucose, lastLoopCompleted == nil || lastLoopCompleted!.timeIntervalSinceNow < -.minutes(4.2) {
++        if storedNewGlucose, lastLoopCompleted == nil || lastLoopCompleted!.timeIntervalSinceNow < -LoanControl.scaled(.minutes(4.2)) {
+             self.log.default("Triggering Loop from refreshCGM() — new glucose stored")
+             await self.checkPumpDataAndLoop()
+         }
+@@ -971,7 +971,7 @@ extension DeviceDataManager: CGMManagerDelegate {
+             let now = Date()
+             // A CGM can re-deliver readings the store already holds (Nightscout polls do, every
+             // poll). Only a reading that was actually stored is a reason to run the loop.
+-            if storedNewGlucose, now.timeIntervalSince(self.lastCGMLoopTrigger) > .minutes(4.2) {
++            if storedNewGlucose, now.timeIntervalSince(self.lastCGMLoopTrigger) > LoanControl.scaled(.minutes(4.2)) {
+                 self.log.default("Triggering loop from new CGM data at %{public}@", String(describing: now))
+                 self.lastCGMLoopTrigger = now
+                 await self.checkPumpDataAndLoop()
+diff --git a/Loop/Managers/PodLoanPhoneController+Grant.swift b/Loop/Managers/PodLoanPhoneController+Grant.swift
+index 2e26ec47..94d9f70f 100644
+--- a/Loop/Managers/PodLoanPhoneController+Grant.swift
++++ b/Loop/Managers/PodLoanPhoneController+Grant.swift
+@@ -326,10 +326,10 @@ extension PodLoanPhoneController {
+     }
+ 
+     /// Floor on unprompted refreshes (~25 KB each).
+-    private static let dormantRefreshInterval: TimeInterval = .minutes(30)
++    private static let dormantRefreshInterval: TimeInterval = LoanControl.scaled(.minutes(30))
+ 
+     /// Floor on book-triggered refreshes, with one trailing refresh.
+-    private static let bookRefreshFloor: TimeInterval = 30
++    private static let bookRefreshFloor: TimeInterval = LoanControl.scaled(30)
+ 
+     /// Everything in the settings the wrist would behave differently on.
+     private static func settingsFingerprint(_ s: LoopSettings) -> String {
+diff --git a/Loop/Managers/PodLoanPhoneController+Settle.swift b/Loop/Managers/PodLoanPhoneController+Settle.swift
+index b3cc3276..f1b937c4 100644
+--- a/Loop/Managers/PodLoanPhoneController+Settle.swift
++++ b/Loop/Managers/PodLoanPhoneController+Settle.swift
+@@ -17,7 +17,7 @@ import os.log
+ extension PodLoanPhoneController {
+ 
+     /// Ceiling on the settle; also bounds how long a grant can be refused as not-yet-ready.
+-    static let reclaimSettleTimeout: TimeInterval = .minutes(5)
++    static let reclaimSettleTimeout: TimeInterval = LoanControl.scaled(.minutes(5))
+ 
+     /// A typical settle; the progress bar is drawn against it.
+     static let reclaimSettleExpectation: TimeInterval = 10
+diff --git a/LoopCore/PodLoan/LoanControl.swift b/LoopCore/PodLoan/LoanControl.swift
+index 64d2b1fb..94fc2bfd 100644
+--- a/LoopCore/PodLoan/LoanControl.swift
++++ b/LoopCore/PodLoan/LoanControl.swift
+@@ -191,8 +191,29 @@ public enum LoanControl {
+         }
+     }
+ 
+-    /// The watch's report is overdue after this long without one: one loop cycle and a margin.
+-    public static let watchReportOverdue: TimeInterval = 6 * 60
++    /// Simulator testing only, and only in a build with SIMULATED_TIME_SCALE_ENABLED: the waits a
++    /// test sits through on Sport Mode's own clocks (a report overdue, a settle, a copy's refresh,
++    /// the loop's rate limit) are divided by SPORTMODE_TIME_SCALE from the app's environment. 1 on a
++    /// device, in a build without the flag, in an app launched without the variable, and under
++    /// XCTest. The answer waits and the takeover lease are real latencies and stay as they are.
++    /// Timestamps are untouched: only how long something waits before it acts.
++    public static let timeScale: Double = {
++        #if SIMULATED_TIME_SCALE_ENABLED && targetEnvironment(simulator)
++        if NSClassFromString("XCTestCase") == nil,
++           let text = ProcessInfo.processInfo.environment["SPORTMODE_TIME_SCALE"],
++           let scale = Double(text), scale >= 1 {
++            return scale
++        }
++        #endif
++        return 1
++    }()
++
++    /// `interval`, shortened by `timeScale`.
++    public static func scaled(_ interval: TimeInterval) -> TimeInterval { interval / timeScale }
++
++    /// The watch's report is overdue after this long without one: one loop cycle and a margin. The
++    /// cycle follows the time scale; the margin covers real latencies and does not.
++    public static let watchReportOverdue: TimeInterval = scaled(5 * 60) + 60
+ 
+     /// How long a takeover has to reach the pod, for a grant and for an offline start alike. Every
+     /// takeover seen reached the pod within 25 s, most within 4; a pod not reached in a minute was
+diff --git a/LoopTests/LoanControlTests.swift b/LoopTests/LoanControlTests.swift
+index 4f13b6bd..a2098c47 100644
+--- a/LoopTests/LoanControlTests.swift
++++ b/LoopTests/LoanControlTests.swift
+@@ -143,4 +143,15 @@ final class LoanControlTests: XCTestCase {
+         XCTAssertEqual(C.Wait.inBackground.seconds, 30)
+         XCTAssertEqual(C.watchReportOverdue, 6 * 60)
+     }
++
++    // MARK: - The Simulator time scale
++
++    func testTheTimeScaleIsOneUnderTest() {
++        XCTAssertEqual(C.timeScale, 1)
++    }
++
++    func testScaledDividesByTheTimeScale() {
++        XCTAssertEqual(C.scaled(300), 300 / C.timeScale)
++        XCTAssertEqual(C.watchReportOverdue, C.scaled(5 * 60) + 60)
++    }
+ }
+diff --git a/WatchApp Extension/StockLoop/WatchLoopManager.swift b/WatchApp Extension/StockLoop/WatchLoopManager.swift
+index f9a7cb5b..22101d6f 100644
+--- a/WatchApp Extension/StockLoop/WatchLoopManager.swift	
++++ b/WatchApp Extension/StockLoop/WatchLoopManager.swift	
+@@ -553,7 +553,7 @@ final class WatchLoopManager {
+     func claimCGMLoopTrigger(at now: Date) -> Bool {
+         cgmLoopTriggerLock.lock()
+         defer { cgmLoopTriggerLock.unlock() }
+-        guard now.timeIntervalSince(lastCGMLoopTrigger) > .minutes(4.2) else { return false }
++        guard now.timeIntervalSince(lastCGMLoopTrigger) > LoanControl.scaled(.minutes(4.2)) else { return false }
+         lastCGMLoopTrigger = now
+         return true
+     }
+-- 
+2.50.1 (Apple Git-155)
+

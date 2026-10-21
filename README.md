@@ -18,9 +18,18 @@ changes to each, on these forks:
 
 ## Setup
 
-Needs Xcode with the iOS and watchOS Simulator runtimes, and Go. Then:
+Needs a Mac with Xcode and its iOS and watchOS Simulator runtimes, Go (to build the simulators and
+the mux), xcodegen (`brew install xcodegen`, for the tap drivers), and a LoopWorkspace checkout of a
+Sport Mode branch, for example:
 
 ```sh
+git clone --recurse-submodules https://github.com/jeremybarnum/LoopWorkspace ~/src/LoopWorkspace
+```
+
+Then, from this repository:
+
+```sh
+./tree.sh ~/src/LoopWorkspace SportMode-bench   # the branch to test, plus the Simulator aids (below)
 ./sim.sh build        # clones and builds the simulators, the mux and the libraries into build/
 ./sim.sh sims         # creates and pairs "Sport Mode Phone" and "Sport Mode Watch" (ids in .sims)
 WORKSPACE=~/src/LoopWorkspace ./sim.sh apps   # builds Loop's phone and watch apps for them
@@ -29,13 +38,20 @@ WORKSPACE=~/src/LoopWorkspace ./sim.sh apps   # builds Loop's phone and watch ap
 ./sim.sh launch phone
 ```
 
-`WORKSPACE` is a LoopWorkspace checkout with Sport Mode, branch `sim-testing` of
-`jeremybarnum/LoopWorkspace` (`git clone --recurse-submodules -b sim-testing …`). It is Sport Mode's
-build with two changes for the Simulator only:
-- A watch bolus is confirmed by turning the crown, which a test cannot do on that screen in the
-  Simulator; a double tap confirms it in Simulator builds.
-- OmnipodKit fakes pod operations in the Simulator only when no simulated pod answers. Without this, a
-  hand-back's temp cancel would send nothing to the simulated pod.
+`tree.sh` checks out the superproject branch from the checkout's origin (or keeps the current one when
+none is named) on a local branch `sim-testing`, and applies the Simulator-only aids as local commits;
+nothing is pushed, and nothing of the aids reaches a device build. The aids for the next-dev line
+(`aids/next-dev`) are four:
+- **The watch bolus by double tap.** A watch bolus is confirmed by turning the crown, which a test cannot
+  do on that screen in the Simulator; a double tap confirms it in Simulator builds.
+- **OmnipodKit fakes the pod only when it is mocked.** In the Simulator it faked pod operations whenever
+  it ran there, even with a simulated pod answering; then a hand-back's temp cancel sent nothing.
+- **The time scale**, behind the `SIMULATED_TIME_SCALE_ENABLED` flag (see Faster runs).
+- **Sport Mode on**: `SPORT_MODE_ENABLED` and the watch's entitlements (its workout session and
+  time-sensitive notifications) in `LoopConfigOverride.xcconfig`.
+
+A patch whose change the branch already has is skipped; one that no longer applies stops the script,
+and the aid then needs a version for that branch. `--aids prod-126` applies the production line's set.
 
 **Onboard the phone once** (the Simulators keep it): long-press the logo on Welcome to skip the setup,
 then in Settings add the G7 sensor (code 4321) and the Omnipod DASH pod (pair, prime, insert). A bolus
@@ -82,7 +98,7 @@ both apps up, no loan), does the taps and the situations, waits on the apps' log
 test's pass lines, and ends in PASS or FAIL. `tests/run.sh` runs all of them in a row (or the ones
 named) and keeps each one's output under `build/results/`.
 
-Scripted: T1, T3–T11, T13, T16–T19. T9's six hours are simulated by aging the watch's saved last pod
+Scripted: T1, T3–T11, T13, T16–T19, T22. T9's six hours are simulated by aging the watch's saved last pod
 reading while it is off. Not scripted: T2 (no way to cause it), T12 (opportunistic), T14 (a tap
 within a second of the watch waking), T15 (a clarifying test for the hardware emulator).
 
@@ -100,7 +116,7 @@ copy's refresh, and the cycle part of the watch's report overdue (one cycle plus
 they are real latencies: the 10 s and 30 s answer waits, the 60 s takeover lease, resend throttles,
 and the margin. A full run took 30 min at scale 5 against 49 at real time; the rest is taps,
 answer waits and bolus delivery, which are real. The scale needs a Loop built from a branch that has it
-(`sim-testing` does); without it the apps run at real time and only the sensor is faster. Use one
+(`tree.sh` adds it); without it the apps run at real time and only the sensor is faster. Use one
 scale for a sensor's whole life: restarting the sensor simulator at another interval re-indexes
 its readings.
 
@@ -127,9 +143,8 @@ joins it.
   watch wakes is often swallowed: check the log and tap again.
 - A backgrounded app is not woken by simulated Bluetooth, so a locked phone (T16) and the watch app's
   background life are not reproduced. The G7 simulator's suspender would do it, one per app.
-- No clock control: T9 (6 hours) needs a real wait.
 - The paired Simulators' reachability is not a device's; `sim.sh` and SimLink correct the known
   differences (a shut-down watch reads reachable; a live message to a watch app not yet running is lost).
 - The pod simulator does not filter scans by service.
 
-A full pass of the runnable tests takes about three hours, most of it waiting on 5-minute readings.
+A full pass of the scripted tests takes about 30 minutes at scale 5, 50 at real time.

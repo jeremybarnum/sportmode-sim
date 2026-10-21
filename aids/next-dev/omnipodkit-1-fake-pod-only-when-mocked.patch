@@ -1,0 +1,125 @@
+From 45b730b15b00807108bddd23f675139a75e5b0d0 Mon Sep 17 00:00:00 2001
+From: Jeremy Barnum <prefer not to supply>
+Date: Mon, 19 Oct 2026 23:30:16 -0400
+Subject: [PATCH] Simulator: fake the pod only when it is mocked
+
+In the Simulator, control readiness, the current-data check, the delivered
+total read and the temp cancel shortcut faked the pod whenever they ran
+there, even when a simulated pod answered over the Bluetooth shim: a
+hand-back's temp cancel sent nothing, and insulin checks compared stale
+totals. They now fake it only when the pod is mocked. A device never mocks
+the pod, so nothing changes there.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+(cherry picked from commit 6131ce5b8b9207b145f1c02c59b447e3832e3579)
+---
+ .../OmniPumpManager+DeviceHandoff.swift       | 34 ++++++++-----------
+ OmnipodKit/PumpManager/OmniPumpManager.swift  | 12 +++----
+ 2 files changed, 19 insertions(+), 27 deletions(-)
+
+diff --git a/OmnipodKit/PumpManager/OmniPumpManager+DeviceHandoff.swift b/OmnipodKit/PumpManager/OmniPumpManager+DeviceHandoff.swift
+index bd1d830..844d31c 100644
+--- a/OmnipodKit/PumpManager/OmniPumpManager+DeviceHandoff.swift
++++ b/OmnipodKit/PumpManager/OmniPumpManager+DeviceHandoff.swift
+@@ -198,12 +198,9 @@ extension OmniPumpManager: ExclusiveDeviceControl {
+     }
+ 
+     public var isControlReady: Bool {
+-        #if targetEnvironment(simulator)
+-        // The simulator has no radio, so no peripheral ever connects; any pod counts as ready.
+-        return state.podState != nil
+-        #else
++        // A mocked pod has no radio, so no peripheral ever connects; any pod counts as ready.
++        if mocksPod { return state.podState != nil }
+         return peripheralStateDescription == "connected"
+-        #endif
+     }
+ 
+     /// What the link has been doing, for the device log.
+@@ -262,21 +259,21 @@ extension OmniPumpManager: PumpDeliveryOdometer {
+ 
+     /// A real status read, bypassing the freshness shortcut in ensureCurrentPumpData.
+     public func refreshDeliveredUnits() async -> Bool {
+-        #if targetEnvironment(simulator)
+-        // No radio in the simulator: fake the round-trip and stamp a measurement, as jumpStartPod does.
+-        try? await Task.sleep(nanoseconds: 1_200_000_000)
+-        setState { state in
+-            if state.podState?.lastInsulinMeasurements == nil {
+-                var pod = state.podState
+-                let delivered = pod?.setupUnitsDelivered ?? Pod.primeUnits
+-                pod?.lastInsulinMeasurements = PodInsulinMeasurements(
+-                    insulinDelivered: delivered, reservoirLevel: nil, validTime: Date())
+-                state.updatePodStateFromPodComms(pod)
++        // A mocked pod has no radio: fake the round-trip and stamp a measurement, as jumpStartPod does.
++        if mocksPod {
++            try? await Task.sleep(nanoseconds: 1_200_000_000)
++            setState { state in
++                if state.podState?.lastInsulinMeasurements == nil {
++                    var pod = state.podState
++                    let delivered = pod?.setupUnitsDelivered ?? Pod.primeUnits
++                    pod?.lastInsulinMeasurements = PodInsulinMeasurements(
++                        insulinDelivered: delivered, reservoirLevel: nil, validTime: Date())
++                    state.updatePodStateFromPodComms(pod)
++                }
+             }
++            log.default("refreshDeliveredUnits simulated OK (mocked pod, no radio)")
++            return true
+         }
+-        log.default("refreshDeliveredUnits simulated OK (no radio in the simulator)")
+-        return true
+-        #else
+         return await withCheckedContinuation { done in
+             getPodStatus(canOptimize: false) { result in
+                 if case .success(let status) = result, status != nil {
+@@ -286,7 +283,6 @@ extension OmniPumpManager: PumpDeliveryOdometer {
+                 }
+             }
+         }
+-        #endif
+     }
+ }
+ 
+diff --git a/OmnipodKit/PumpManager/OmniPumpManager.swift b/OmnipodKit/PumpManager/OmniPumpManager.swift
+index b746b23..2bc2a8d 100644
+--- a/OmnipodKit/PumpManager/OmniPumpManager.swift
++++ b/OmnipodKit/PumpManager/OmniPumpManager.swift
+@@ -2712,10 +2712,9 @@ extension OmniPumpManager: PumpManager {
+     }
+ 
+     public func ensureCurrentPumpData(completion: ((Date?) -> Void)?) {
+-        #if targetEnvironment(simulator)
+-        // No radio in the simulator, so a status fetch would always fail: stamp a fresh measurement
++        // A mocked pod has no radio, so a status fetch would always fail: stamp a fresh measurement
+         // and report now, as refreshDeliveredUnits does.
+-        if state.podState != nil {
++        if mocksPod, state.podState != nil {
+             setState { state in
+                 var pod = state.podState
+                 let delivered = pod?.lastInsulinMeasurements?.delivered ?? pod?.setupUnitsDelivered ?? Pod.primeUnits
+@@ -2726,7 +2725,6 @@ extension OmniPumpManager: PumpManager {
+             completion?(Date())
+             return
+         }
+-        #endif
+         let shouldFetchStatus = setStateWithResult { (state) -> Bool? in
+             guard state.hasActivePod else {
+                 return nil // No active pod
+@@ -2946,13 +2944,11 @@ extension OmniPumpManager: PumpManager {
+             return
+         }
+ 
+-        #if targetEnvironment(simulator)
+-        // No radio in the simulator; cancelling with no temp running changes nothing on the pod.
+-        if duration < .ulpOfOne, podState.unfinalizedTempBasal == nil {
++        // A mocked pod has no radio; cancelling with no temp running changes nothing on it.
++        if mocksPod, duration < .ulpOfOne, podState.unfinalizedTempBasal == nil {
+             completion(nil)
+             return
+         }
+-        #endif
+ 
+         // Round to nearest supported rate
+         let rate = roundToSupportedBasalRate(unitsPerHour: unitsPerHour)
+-- 
+2.50.1 (Apple Git-155)
+

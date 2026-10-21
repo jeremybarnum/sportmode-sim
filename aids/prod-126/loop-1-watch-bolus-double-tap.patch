@@ -1,0 +1,33 @@
+From 7728cc8aa6be1996779ec0d7059291aa9e75a93f Mon Sep 17 00:00:00 2001
+From: Jeremy Barnum <prefer not to supply>
+Date: Mon, 19 Oct 2026 15:20:40 -0400
+Subject: [PATCH] Watch bolus confirm: a double tap stands in for the crown in
+ the Simulator
+
+A test run in the Simulator cannot turn the crown, so it could not confirm a
+bolus on the watch. Simulator builds only; nothing changes on a device.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+(cherry picked from commit 2a1dc98173d8affa3bbceb710f9e8b4580ae6bf5)
+---
+ .../Views/Carb Entry & Bolus/BolusConfirmationView.swift      | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/WatchApp Extension/Views/Carb Entry & Bolus/BolusConfirmationView.swift b/WatchApp Extension/Views/Carb Entry & Bolus/BolusConfirmationView.swift
+index 0c676590..403034bf 100644
+--- a/WatchApp Extension/Views/Carb Entry & Bolus/BolusConfirmationView.swift	
++++ b/WatchApp Extension/Views/Carb Entry & Bolus/BolusConfirmationView.swift	
+@@ -72,6 +72,10 @@ struct BolusConfirmationView: View {
+         .onReceive(resetProgress) {
+             self.progress.wrappedValue = 0
+         }
++        #if targetEnvironment(simulator)
++        // A test in the Simulator cannot turn the crown: a double tap stands in for the turn.
++        .onTapGesture(count: 2) { self.progress.wrappedValue = 1 }
++        #endif
+     }
+ 
+     private var isFinished: Bool { abs(progress.wrappedValue) >= 1.0 }
+-- 
+2.50.1 (Apple Git-155)
+
