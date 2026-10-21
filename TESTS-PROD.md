@@ -6,9 +6,15 @@ relaunched during a loan ends the loan, a silent watch is warned about but not t
 and the watch reads the G7 by riding the Dexcom app's link.
 
 The rig is `RIG=prod`: its own Simulator pair, apps built from `trees/sim-prod` (prod-126 plus the
-Simulator aids), the simulated G7 playing the Dexcom app (`DEXCOM_APP=1`), and real time (the line has
-no time scale). Scripts are in `tests-prod/`; `tests-prod/run.sh P1 P4` runs some, no argument runs all.
-One rig runs at a time.
+Simulator aids), and the simulated G7 playing the Dexcom app (`DEXCOM_APP=1`). Scripts are in
+`tests-prod/`; `tests-prod/run.sh P1 P4` runs some, no argument runs all. One rig runs at a time.
+
+Time scale (from 10-21): the Simulator aids include the time scale (`LoopCoreConstants.scaled`, behind
+the `SIMULATED_TIME_SCALE_ENABLED` build flag, Simulator only), so `TIME_SCALE=5 RIG=prod ./sim.sh start`
+plus `launch` runs the loop and the phone's loan timers five times faster; real latencies (answer waits,
+resends, leases) are not scaled. The scripts read the scale from `build/run-prod/time-scale` (`sc`,
+`tsleep`). Build the scaled apps into `build/dd-prod-scaled`. A real-time run of the whole suite still
+comes before a build ships.
 
 Setup once (done on 2026-10-20): `RIG=prod ./sim.sh sims`; build with
 `RIG=prod WORKSPACE=~/Downloads/Loop/trees/sim-prod ./sim.sh apps`; `install`; `start -fresh`; on the
@@ -29,7 +35,7 @@ does today and change when the ruling is built.
 | P4 | A Start interrupted by quitting the watch app: takeoverFailed at relaunch, the phone takes the pod back | Scripted; passes 10-21 |
 | P5 | The watch app relaunched mid-loan ends the loan: "Sport Mode Ended", the recovered offer resent every 15 s until acknowledged, the phone takes the pod back | Passes 10-21 (decided: relaunch ends the loan) |
 | P6 | The same with the phone unable to reach the pod (its Bluetooth off) | Passes on a8ca78d (fixed: the drain keeps offering) |
-| P7 | A silent watch: "Watch Not Reporting" at about 20, 40, 60 min while the phone has fresh glucose; none while it has not; no take-back on a timer | Warn only, ruled for this build; on a6eec2a warnings expected at about 20, 40, 60 min (run on a8ca78d: 26, 41, 66) |
+| P7 | A silent watch: "Watch Not Reporting" at about 20, 40, 60 min while the phone has fresh glucose; none while it has not; no take-back on a timer | Passes on 1dcda09 at real time (silent at 14.5 min, warned at 19.5, 39.5, 59.5); warn only, ruled for this build |
 | P8 | Take Back, watch live: revoke, resend at +10 s, force at +25 s if unanswered; dosing paused until the audit rules | Passes 10-21; *pending: single-path Take Back* |
 | P9 | Take Back, watch silent past 330 s: force at once | Passes 10-21; *pending: single-path Take Back* |
 | P10 | A forced Take Back (the watch not answering) with the pod out of reach: "Watch Session Unverified" at 5 min, the loop opens | Scripted; *pending: single-path Take Back* |
@@ -37,7 +43,7 @@ does today and change when the ruling is built.
 | P12 | Start with the phone unreachable waits 8 s before offering the offline start | Passes 10-21 |
 | P13 | The watch's standing copy refreshed after an insulin and a carb entry on the phone; the status probe on the immediate channel | Passes 10-21 |
 | P14 | A watch bolus and carbs during a loan; End refused during a watch bolus; Take Back during a bolus | Passes 10-21 (the bolus parts) |
-| P15 | The predicted-low warning on the watch; Missed Meal Notifications off and on | Passes on a6eec2a; needs Predicted Low Warnings on (and overnight, at night); falls 8 mg/dL a reading (10 reads as a compression low, by design) |
+| P15 | The predicted-low warning on the watch; Missed Meal Notifications off and on | Passes on a6eec2a; to rerun on 1dcda09 (carbs as entered may move the warning); needs Predicted Low Warnings on (and overnight, at night); falls 8 mg/dL a reading (10 reads as a compression low, by design) |
 | P16 | A hand-back that gives up: "End didn't go through" and the loan carries on | Passes on 2bf31c4 (the glance sentence fixed there) |
 | P17 | A Take Back the watch answers, the pod out of reach past the 5-minute settle, then a new loan: the take-back's audit concluded (verified or reported unverified) before the next loan; no false open loop | Passes on a6eec2a (fixed: an unanswered check ends unverified at 5 min; Start refused while it is pending) |
 
