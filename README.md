@@ -61,10 +61,12 @@ and the aid then needs a version for that branch. `--aids prod-126` applies the 
   Not Now for Dexcom Share.
 - Pump: Omnipod, Continue, Next, Next, an insulin, Continue, Omnipod DASH, Confirm Pod Type, Pair pod;
   after priming Continue, Continue, Confirm; slide to insert the cannula, Continue, Yes, Finish Setup.
+- Settings: switch Closed Loop on (the switch at the right of its row; a tap on the label does not
+  toggle it), then Done. The skipped setup leaves it off, and the tests expect the loop closed.
 
 Then `./sim.sh launch watch`, and `./sim.sh launch phone` again: the phone sees a watch app installed
-after it only at its next launch. Before the first Start wait for the watch to read the sensor and log
-`dormant grant refreshed`. A bolus on the phone asks the Simulator's passcode: 0000.
+after it only at its next launch (its log then shows `appInstalled=true`). Before the first Start wait
+for the watch to read the sensor. A bolus on the phone asks the Simulator's passcode: 0000.
 
 ## Commands
 
