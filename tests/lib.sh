@@ -12,6 +12,12 @@ TAKE_BACK_CELL=${TAKE_BACK_CELL:-Sport Mode}
 STATUS_SCREEN=${STATUS_SCREEN:-glucoseHUDView}   # an element only the phone's status screen shows
 WATCH_BOLUS=${WATCH_BOLUS:-bolus}                 # the watch control that opens the bolus screen
 WATCH_CLOSE=${WATCH_CLOSE:-close-sheet}           # the watch control that closes a sheet
+PHONE_BOLUS_FIELD=${PHONE_BOLUS_FIELD-textField_Bolus}   # the phone's bolus amount field; empty: the first text field
+PHONE_BOLUS_ACTION=${PHONE_BOLUS_ACTION:-button_bolusAction}   # the phone's deliver button
+PHONE_PASSCODE=${PHONE_PASSCODE:-1}                     # a phone bolus asks the Simulator's passcode
+PHONE_CARBS_OPEN=${PHONE_CARBS_OPEN:-Add Carbs}             # the phone's carb entry: open, continue, save
+PHONE_CARBS_CONTINUE=${PHONE_CARBS_CONTINUE:-button_Continue}
+PHONE_CARBS_SAVE=${PHONE_CARBS_SAVE:-button_bolusAction}
 BOLUS_ACCEPTED=${BOLUS_ACCEPTED:-MANUAL BOLUS .*ACCEPTED by pod}
 T0=$(date +%T) # the test's start: its logs are read from here
 failed=0
@@ -311,12 +317,13 @@ watch_bolus_start() { # units (a multiple of 0.5)
 phone_bolus() { # units
 	dismiss_alert
 	ui phone tap Bolus
-	ui phone tap textField_Bolus
+	if [ -n "$PHONE_BOLUS_FIELD" ]; then ui phone tap "$PHONE_BOLUS_FIELD"; else ui phone field; fi
 	ui phone type "$1"
 	ui phone tap Done
-	ui phone tap button_bolusAction
+	ui phone tap "$PHONE_BOLUS_ACTION"
 	sleep 2
-	"$UI" phone systype '0000\n' >/dev/null 2>&1 || true
+	[ "$PHONE_PASSCODE" = 1 ] && { "$UI" phone systype '0000\n' >/dev/null 2>&1 || true; }
+	return 0
 }
 
 # Back to the starting point every test assumes: everything in range, both apps running, the
@@ -461,10 +468,10 @@ age_watch_ledger() { # file hours
 # Carbs entered on the phone, saved without a bolus.
 phone_carbs() { # grams
 	dismiss_alert
-	ui phone tap "Add Carbs"
+	ui phone tap "$PHONE_CARBS_OPEN"
 	ui phone type "$1"
-	ui phone tap button_Continue
-	ui phone tap button_bolusAction
+	ui phone tap "$PHONE_CARBS_CONTINUE"
+	ui phone tap "$PHONE_CARBS_SAVE"
 	# Back on the status screen; the toolbar alone proves nothing, it is on every screen.
 	"$UI" phone gone 10 "Meal Bolus" >/dev/null 2>&1 || phone_home
 }
