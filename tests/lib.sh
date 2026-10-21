@@ -299,6 +299,13 @@ watch_reads_sensor() {
 	wait_for watch "$since" 'INGEST src=direct-G7' 420
 }
 
+# Nothing matching regex between two times (a refusal's window, before the retry).
+expect_none_between() { # side from until regex what
+	local l
+	l=$(lines "$1" "$2" "$4" | awk -v u="$3" '$1 < u' | head -1)
+	if [ -z "$l" ]; then pass "$5" "no $1 line /$4/ from $2 to $3"; else fail "$5" "$l"; fi
+}
+
 # Exactly n lines matching regex since a time.
 expect_count() { # side since regex n what
 	local c

@@ -52,12 +52,12 @@ wait_for watch "$tb2" 'CLOSED — ' 120
 
 say "Checks"
 expect phone "$a" 'grant REFUSED — this phone.s bolus is still being given' "(a) Start refused while the phone's bolus is being given"
-expect_none phone "$a" 'GRANT — releasing pod' "(a) nothing released by the refused Start"
+expect_none_between phone "$a" "$a2" 'GRANT — releasing pod' "(a) nothing released by the refused Start"
 expect watch "$a2" 'ACTIVE — epoch' "(a) the Start after the bolus went through"
 expect watch "$b" 'HAND-BACK refused — a bolus is being given' "(b) End refused while the watch's bolus is being given"
-expect_none phone "$b" 'offer RX' "(b) no hand-back offer reached the phone during the bolus"
+expect_none_between phone "$b" "$b2" 'offer RX' "(b) no hand-back offer reached the phone during the bolus"
 expect watch "$b2" 'CLOSED — ' "(b) the End after the bolus handed back"
 expect phone "$tb" 'take-back REFUSED — the pod is giving the watch.s bolus' "(c) Take Back refused while the watch's bolus is being given"
-expect_none watch "$tb" 'REVOKED' "(c) the loan continued during the bolus (no REVOKED)"
+expect_none_between watch "$tb" "$tb2" 'REVOKED' "(c) the loan continued during the bolus (no REVOKED)"
 expect watch "$tb2" 'REVOKED' "(c) the Take Back after the bolus took the pod"
 verdict
