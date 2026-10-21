@@ -1,7 +1,9 @@
 #!/bin/sh
 # T22 — Start, End and Take Back during a bolus. Nobody takes the pod while it is giving a bolus:
-# each is refused with the seconds left, and goes through once the bolus has finished. A 2 U bolus
-# takes the simulated pod about 80 s (0.05 U every 2 s), as a DASH pod.
+# each is refused with the seconds left, and goes through once the bolus has finished. (b2): an End
+# moments after a watch bolus is sent, before the pod accepts it, is refused too. A 2 U bolus takes
+# the simulated pod about 80 s (0.05 U every 2 s), as a DASH pod; for (b2) the pod is made to hold
+# the bolus command 6 s before accepting it, as a real pod takes seconds.
 TEST=T22
 . "$(dirname "$0")/lib.sh"
 set -u
@@ -35,9 +37,22 @@ wait_for watch "$b2" 'CLOSED — ' 180
 wait_for phone "$b2" 'temp cancelled' 60
 sleep 5
 
-say "a new loan; (c) 2 U bolus on the watch; Take Back on the phone while it is being given"
+say "a new loan; (b2) End within seconds of sending a watch bolus, before the pod accepts it"
 c0=$(now)
 start_loan "$c0"
+# A real pod takes seconds to accept a bolus; the simulated one answers at once unless held.
+sim pod slow 6
+b3=$(now)
+watch_bolus_send 2
+watch_main
+te=$(now)
+ui watch tap End
+sleep 8
+say "wait for the bolus to be accepted and given"
+wait_for watch "$b3" 'ACCEPTED by pod' 60 >/dev/null
+sleep 85
+
+say "(c) in the same loan: 2 U bolus on the watch; Take Back on the phone while it is being given"
 c=$(watch_bolus_start 2)
 sleep 5
 tb=$(now)
@@ -57,6 +72,12 @@ expect watch "$a2" 'ACTIVE — epoch' "(a) the Start after the bolus went throug
 expect watch "$b" 'HAND-BACK refused — a bolus is being given' "(b) End refused while the watch's bolus is being given"
 expect_none_between phone "$b" "$b2" 'offer RX' "(b) no hand-back offer reached the phone during the bolus"
 expect watch "$b2" 'CLOSED — ' "(b) the End after the bolus handed back"
+acc=$(lines watch "$b3" 'ACCEPTED by pod' | head -1 | cut -c1-8)
+if [ -n "$acc" ] && [ "$te" \< "$acc" ]; then pass "(b2) the End came before the pod accepted the bolus (End $te, accepted $acc)" ""
+else fail "(b2) the End came before the pod accepted the bolus (End $te, accepted ${acc:-never})" ""; fi
+expect watch "$te" 'HAND-BACK refused' "(b2) End refused while the bolus was sent but not yet accepted"
+expect_none_between watch "$te" "$c" 'HAND-BACK requested' "(b2) no hand-back started"
+expect_none_between phone "$te" "$c" 'offer RX' "(b2) no hand-back offer reached the phone"
 expect phone "$tb" 'take-back REFUSED — the pod is giving the watch.s bolus' "(c) Take Back refused while the watch's bolus is being given"
 expect_none_between watch "$tb" "$tb2" 'REVOKED' "(c) the loan continued during the bolus (no REVOKED)"
 expect watch "$tb2" 'REVOKED' "(c) the Take Back after the bolus took the pod"

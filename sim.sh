@@ -18,6 +18,7 @@
 # The physical situations of the bench tests:
 #   sim.sh phone away|back  the phone's radios off and on: no watch, no pod, no sensor
 #   sim.sh pod away|back    the pod out of reach of both, and back
+#   sim.sh pod slow <s>     the pod's next state-changing command waits <s> before it is accepted
 #   sim.sh watch off|on     shut the watch Simulator down; boot it and launch the watch app
 #   sim.sh quit phone|watch end the app (a force quit)
 #   sim.sh range            what is out of range now
@@ -36,7 +37,7 @@ run=$out/run
 # The simulators, at the commits this harness was tested with (LoopKit/g7sim and LoopKit/pod with
 # the changes proposed upstream; g7sim builds ImpossiBLE with its own patches).
 G7SIM=https://github.com/jeremybarnum/g7sim; G7SIM_COMMIT=3f43670
-POD=https://github.com/jeremybarnum/pod;     POD_COMMIT=ab76d1a
+POD=https://github.com/jeremybarnum/pod;     POD_COMMIT=3823843
 
 [ -f "$here/.sims" ] && . "$here/.sims"
 PHONE=${PHONE_SIM:-${SIMS_PHONE:-}}
@@ -207,7 +208,10 @@ pod() {
 	case "$1" in
 	away) range provider pod 0 ;;
 	back) range provider pod 1 ;;
-	*) echo "pod away|back" >&2; exit 2 ;;
+	# The pod's next state-changing command waits this long before the pod acts on it and answers,
+	# as a pod slow to accept: the app has sent it and does not yet know it took.
+	slow) curl -s -m 3 -X POST "localhost${POD_API}/command" -d "{\"command\":\"slowNextCommand\",\"value\":${2:-5}}"; echo "pod: next command held ${2:-5} s" ;;
+	*) echo "pod away|back|slow <seconds>" >&2; exit 2 ;;
 	esac
 }
 
@@ -261,7 +265,7 @@ bundle) case "${2:-}" in phone) echo "$PHONE_ID" ;; watch) echo "$WATCH_ID" ;; *
 quit) quit "${2:-}" ;;
 since) f=$(applog "${2:-}"); awk -v t="${3:-00:00:00}" '$2 >= t' "$f" | grep -E "${4:-.}" | cut -c12-260 ;;
 phone) phone "${2:-}" ;;
-pod) pod "${2:-}" ;;
+pod) pod "${2:-}" "${3:-}" ;;
 watch) watch "${2:-}" ;;
 range) curl -s -m 3 "localhost${MUX_API}/range"; echo; [ -f "$LINK" ] && echo "link: $(cat "$LINK")" || echo "link: up" ;;
 *) sed -n 2,27p "$0" | sed 's/^# \{0,1\}//'; exit 2 ;;

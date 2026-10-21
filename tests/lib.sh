@@ -231,6 +231,19 @@ watch_bolus() { # units (a multiple of 0.5)
 	sleep $(awk -v b="$1" 'BEGIN { printf "%d", b * 40 + 10 }')
 }
 
+# A watch bolus sent, and nothing more: the confirm, without waiting for the pod to accept it.
+watch_bolus_send() { # units (a multiple of 0.5)
+	local n
+	watch_page 1
+	ui watch tap bolus
+	ui watch wait 5 "+"
+	for n in 1 2 3 4; do "$UI" watch tap "−" >/dev/null 2>&1 || break; done
+	n=$(awk -v b="$1" 'BEGIN { printf "%d", b / 0.5 + 0.5 }')
+	while [ "$n" -gt 0 ]; do ui watch tap "+"; n=$((n - 1)); done
+	ui watch tap Bolus
+	ui watch double "Turn Digital"
+}
+
 # A watch bolus started and left running: the same taps, without the wait for delivery.
 watch_bolus_start() { # units (a multiple of 0.5)
 	local n t0
