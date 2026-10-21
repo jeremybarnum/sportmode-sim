@@ -4,25 +4,25 @@
 # local commits on a branch named sim-testing in the superproject and each changed submodule. Nothing
 # is pushed, and nothing of the aids reaches a device build.
 #
-#   ./tree.sh [--aids <set>] <LoopWorkspace checkout> [superproject branch]
-#   WORKSPACE=<checkout> ./tree.sh [--aids <set>] [superproject branch]
+#   ./tree.sh [--aids <folder>] <LoopWorkspace checkout> [superproject branch]
+#   WORKSPACE=<checkout> ./tree.sh [--aids <folder>] [superproject branch]
 #
-# The branch is fetched from the checkout's origin. The aids are the patches in aids/<set>/ (default
-# next-dev; prod-126 for the production line), applied by file name order to the submodule each name
-# starts with, plus the build flags and lines in aids/<set>/xcconfig added to LoopConfigOverride.xcconfig.
+# The branch is fetched from the checkout's origin. The aids are the patches in aids/next-dev, or in
+# the folder given, applied by file name order to the submodule each name starts with, plus the build
+# flags and lines in the folder's xcconfig added to LoopConfigOverride.xcconfig.
 # A patch whose change the branch already has is skipped. Then: WORKSPACE=<checkout> ./sim.sh apps.
 set -eu
 here=$(cd "$(dirname "$0")" && pwd)
 
-set_name=next-dev
-if [ "${1:-}" = --aids ]; then set_name=$2; shift 2; fi
-if [ -n "${WORKSPACE:-}" ]; then ws=$WORKSPACE; else ws=${1:?usage: tree.sh [--aids <set>] <LoopWorkspace checkout> [branch]}; shift; fi
+aids=$here/aids/next-dev
+if [ "${1:-}" = --aids ]; then aids=$(cd "$2" && pwd) || exit 2; shift 2; fi
+if [ -n "${WORKSPACE:-}" ]; then ws=$WORKSPACE; else ws=${1:?usage: tree.sh [--aids <folder>] <LoopWorkspace checkout> [branch]}; shift; fi
 branch=${1:-}
-aids=$here/aids/$set_name
-[ -d "$aids" ] || { echo "no aids set $set_name (aids/: $(ls "$here/aids" | tr '\n' ' '))" >&2; exit 2; }
+set_name=$(basename "$aids")
+[ -n "$(ls "$aids"/*.patch "$aids"/xcconfig 2>/dev/null)" ] || { echo "no aids in $aids" >&2; exit 2; }
 cd "$ws"
 [ -d LoopWorkspace.xcworkspace ] || { echo "$ws is not a LoopWorkspace checkout" >&2; exit 2; }
-[ -z "$(git status --porcelain --ignore-submodules=all)" ] || { echo "$ws has uncommitted changes: commit or set them aside first" >&2; exit 2; }
+[ -z "$(git status --porcelain --ignore-submodules=all --untracked-files=no)" ] || { echo "$ws has uncommitted changes: commit or set them aside first" >&2; exit 2; }
 
 # Commits made here carry the checkout's own git identity, or a stand-in when it has none.
 g() {

@@ -2,7 +2,8 @@
 # logs, and checks whose results make the verdict. A test prints its steps, each check with the log
 # line that decided it, and PASS or FAIL; it exits 1 on FAIL.
 
-root=$(cd "$(dirname "$0")/.." && pwd)
+# The harness: this repository, or SPORTMODE_SIM when the tests live in another one.
+root=${SPORTMODE_SIM:-$(cd "$(dirname "$0")/.." && pwd)}
 SIM=$root/sim.sh
 UI=$root/ui.sh
 BAND=0.20      # an insulin check's residual counts as clean within ±BAND U
