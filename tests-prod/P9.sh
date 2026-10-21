@@ -16,7 +16,7 @@ sim watch off
 sleep 360
 tb=$(now)
 take_back
-wait_for phone "$tb" 'force reclaim SALVAGE' 30
+wait_for phone "$tb" 'R37 audit armed' 30
 
 say "The watch back on"
 sim watch on
@@ -25,6 +25,6 @@ wait_for watch "$tb" 'REVOKED|recovered|CLOSED' 180
 
 say "Checks"
 expect phone "$tb" 'reclaim ladder DEAD' "the phone took the dead path"
-expect_within phone "$tb" 'force reclaim SALVAGE' 5 "forced at once"
+expect_within phone "$tb" 'R37 audit armed' 5 "forced at once"
 expect_none phone "$tb" 'reclaim revoke RESENT' "no resend on the dead path"
 verdict

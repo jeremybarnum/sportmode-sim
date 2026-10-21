@@ -3,7 +3,9 @@
 # settle, then a new loan. Found 2026-10-21 (P10's first run): the phone cleared its settle at 5
 # minutes with no notice, kept the hand-back audit open, granted the next loan, and ran the old audit
 # on the next loan's pod reading, so the pod's scheduled basal in the gap read as unexplained insulin
-# ("R32 OPEN LOOP"). Pass: no stale audit carried into the next loan, and no false open loop.
+# ("R32 OPEN LOOP"). In P17's own first run the next loan's audit replaced it instead, and the
+# take-back's audit never ran at all, with no notice. Pass: the take-back's audit is concluded,
+# verified or reported unverified, before the next loan; no false open loop.
 TEST=P17
 . "$(dirname "$0")/lib.sh"
 set -u
@@ -37,6 +39,7 @@ wait_for phone "$e2" 'reclaim VERIFIED' 180
 sleep 5
 
 say "Checks"
+expect_between phone "$tb" "$s2" "e$epoch1 (reconcile\\[AUTHORITATIVE\\]|R37: audit NEVER RAN)" "the take-back's audit (e$epoch1) concluded, verified or reported unverified, before the next loan"
 l=$(lines phone "$s2" "e$epoch1 reconcile\\[AUTHORITATIVE\\]" | head -1)
 if [ -z "$l" ]; then pass "the take-back's audit (e$epoch1) was not run on the next loan's reading" ""
 else fail "the take-back's audit (e$epoch1) was not run on the next loan's reading" "$l"; fi

@@ -17,7 +17,7 @@ sim link down
 sim pod away
 tb=$(now)
 take_back
-wait_for phone "$tb" 'force reclaim SALVAGE' 60
+wait_for phone "$tb" 'R37 audit armed' 60
 say "The settle runs out (5 minutes)"
 wait_for phone "$tb" 'audit NEVER RAN' 400
 
@@ -26,7 +26,7 @@ sim pod back
 sim link up
 
 say "Checks"
-expect phone "$tb" 'force reclaim SALVAGE' "the take-back was forced"
+expect phone "$tb" 'R37 audit armed' "the take-back was forced"
 expect phone "$tb" 'R37: audit NEVER RAN .*Session UNVERIFIED, loop OPENS' "unverified at 5 minutes, the loop opened"
 expect_none phone "$tb" 'R37 audit CLEAN' "no clean audit claimed"
 verdict

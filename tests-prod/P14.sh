@@ -12,6 +12,7 @@ say "(a) Start; a 2 U watch bolus; End while it is being given"
 a=$(now)
 start_loan "$a"
 watch_bolus_start 2 >/dev/null
+watch_close_sheets
 watch_main
 te=$(now)
 ui watch tap End

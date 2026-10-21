@@ -11,6 +11,7 @@ BAND=0.20      # an insulin check's residual counts as clean within ±BAND U
 TAKE_BACK_CELL=${TAKE_BACK_CELL:-Sport Mode}
 STATUS_SCREEN=${STATUS_SCREEN:-glucoseHUDView}   # an element only the phone's status screen shows
 WATCH_BOLUS=${WATCH_BOLUS:-bolus}                 # the watch control that opens the bolus screen
+WATCH_CLOSE=${WATCH_CLOSE:-close-sheet}           # the watch control that closes a sheet
 BOLUS_ACCEPTED=${BOLUS_ACCEPTED:-MANUAL BOLUS .*ACCEPTED by pod}
 T0=$(date +%T) # the test's start: its logs are read from here
 failed=0
@@ -213,8 +214,8 @@ tap_start() {
 watch_close_sheets() {
 	local i
 	for i in 1 2 3; do
-		shows watch close-sheet || return 0
-		"$UI" watch tap close-sheet >/dev/null 2>&1 || return 0
+		shows watch "$WATCH_CLOSE" || return 0
+		"$UI" watch tap "$WATCH_CLOSE" >/dev/null 2>&1 || return 0
 		sleep 1
 	done
 }
