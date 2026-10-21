@@ -28,17 +28,17 @@ does today and change when the ruling is built.
 | P3 | The grant does not reach the watch: the phone's query at +20 s takes the pod back; a watch silent through the takeover: "Watch Loan Not Confirmed" at 5 min | Passes 10-21 (the silent watch); the lost grant needs a link that drops one message |
 | P4 | A Start interrupted by quitting the watch app: takeoverFailed at relaunch, the phone takes the pod back | Scripted; passes 10-21 |
 | P5 | The watch app relaunched mid-loan ends the loan: "Sport Mode Ended", the recovered offer resent every 15 s until acknowledged, the phone takes the pod back | Passes 10-21 (decided: relaunch ends the loan) |
-| P6 | The same with the phone unable to reach the pod (its Bluetooth off) | Scripted (pass = the fixed behaviour); *to be fixed in this build* |
-| P7 | A silent watch: "Watch Not Reporting" at about 20, 40, 60 min while the phone has fresh glucose; none while it has not; no take-back on a timer | *pending: take on silence vs warn* |
+| P6 | The same with the phone unable to reach the pod (its Bluetooth off) | Passes on a8ca78d (fixed: the drain keeps offering) |
+| P7 | A silent watch: "Watch Not Reporting" at about 20, 40, 60 min while the phone has fresh glucose; none while it has not; no take-back on a timer | Scripted, about 70 min; *pending: take on silence vs warn* |
 | P8 | Take Back, watch live: revoke, resend at +10 s, force at +25 s if unanswered; dosing paused until the audit rules | Passes 10-21; *pending: single-path Take Back* |
 | P9 | Take Back, watch silent past 330 s: force at once | Passes 10-21; *pending: single-path Take Back* |
 | P10 | A forced Take Back (the watch not answering) with the pod out of reach: "Watch Session Unverified" at 5 min, the loop opens | Scripted; *pending: single-path Take Back* |
-| P11 | Offline start with the phone away, then the reunion and the retro-acknowledgement | Passes 10-21 |
+| P11 | Offline start with the phone away, then the reunion and the retro-acknowledgement | Passes 10-21; on a8ca78d also the device-named Loop Failure titles |
 | P12 | Start with the phone unreachable waits 8 s before offering the offline start | Passes 10-21 |
-| P13 | The watch's standing copy refreshed after an insulin and a carb entry on the phone; the status probe on the immediate channel | To script |
+| P13 | The watch's standing copy refreshed after an insulin and a carb entry on the phone; the status probe on the immediate channel | Passes 10-21 |
 | P14 | A watch bolus and carbs during a loan; End refused during a watch bolus; Take Back during a bolus | Passes 10-21 (the bolus parts) |
-| P15 | The predicted-low warning on the watch; Missed Meal Notifications off and on | Partly: needs scripted glucose |
-| P16 | A hand-back that gives up: "End didn't go through" and the loan carries on | When built |
+| P15 | The predicted-low warning on the watch; Missed Meal Notifications off and on | Scripted (scripted glucose); first run on a8ca78d |
+| P16 | A hand-back that gives up: "End didn't go through" and the loan carries on | Scripted; on a8ca78d the notification is right (both bodies), the glance sentence is not drawn while the loan runs (reported) |
 | P17 | A Take Back the watch answers, the pod out of reach past the 5-minute settle, then a new loan: the take-back's audit concluded (verified or reported unverified) before the next loan; no false open loop | Scripted; fails on prod-126: the audit is left open (finding 10-21) |
 
 Not testable here: the workout keepalive's effect (the Simulator does not suspend apps as a watch
@@ -113,6 +113,12 @@ refreshed` after each, at most once per 30 s. In a loan: watch `RX statusQuery c
 watch `End REFUSED — the watch's bolus is still being delivered`, alert `Couldn't End Sport Mode`; End
 after the bolus hands back. A carb entry on the watch reaches the phone. Take Back during a watch bolus
 goes through (this line does not refuse it).
+
+**P16.** (a) In a loan, the link cut (`sim.sh link down`), End: after the 2-minute budget, one watch
+notification `[alert] ISSUED PodLoan.protocolNack — Couldn't End Sport Mode: Your iPhone isn't reachable,
+…`; no `CLOSED` or `REVOKED`; the glance shows "End didn't go through — Sport Mode is still running. Tap
+End again." (b) The link 150 s slow, End: the notification's "reachable but didn't confirm: reopen Loop
+on both devices" body; End after the late answers land goes through.
 
 **P17.** Start; the pod out of reach; Take Back (the watch answers). Wait 5½ minutes. Pod back; a new
 loan, ended on the watch. Pass: `e<n> reconcile[AUTHORITATIVE]` or `R37: audit NEVER RAN` for the
