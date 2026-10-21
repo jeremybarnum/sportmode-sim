@@ -104,7 +104,31 @@ expect_within() { # side since regex limit what
 	else fail "$5 (${s} s, limit $4 s)" "$(lines "$1" "$2" "$3" | head -1)"; fi
 }
 
+# An app that crashed during the test fails it: the report and its crashing frame.
+CRASH_MARK=$(mktemp -t sportmode-test)
+crashes() {
+	local f top list
+	list=$(mktemp -t sportmode-crashes)
+	find "$HOME/Library/Logs/DiagnosticReports" -newer "$CRASH_MARK" \( -name 'Loop-*.ips' -o -name 'WatchApp*.ips' \) >"$list" 2>/dev/null
+	while IFS= read -r f; do
+		# Only this rig's Simulators: other runs on the Mac leave reports too.
+		top=$(python3 - "$f" "$PHONE_SIM_ID" "$WATCH_SIM_ID" <<'PY'
+import json, sys
+d = json.loads(open(sys.argv[1]).read().split("\n", 1)[1])
+if not any(i and i in d.get("procPath", "") for i in sys.argv[2:]):
+    sys.exit()
+t = [t for t in d["threads"] if t.get("triggered")][0]
+f = [x for x in t["frames"] if "assertion" not in x.get("symbol", "") and "precondition" not in x.get("symbol", "")][0]
+print(f.get("symbol", "?")[:90], f.get("sourceFile", ""), f.get("sourceLine", ""))
+PY
+)
+		[ -n "$top" ] && fail "no app crash during the test" "$(basename "$f"): $top"
+	done <"$list"
+	rm -f "$list"
+}
+
 verdict() {
+	crashes
 	if [ "$failed" = 0 ]; then say "$TEST: PASS"; exit 0; else say "$TEST: FAIL"; exit 1; fi
 }
 
@@ -128,12 +152,16 @@ wait_reading() { # since seconds [count]
 }
 
 # Whether an app is running.
+# The app runs with the Bluetooth stand-in injected. An app the system restarted after a crash runs
+# without it, with no Bluetooth (OmnipodKit then fakes the pod), and counts as not running.
 running() { # phone|watch
+	local p
 	case "$1" in
-	phone) pgrep -f "$PHONE_SIM_ID.*/Loop.app/Loop" >/dev/null ;;
+	phone) p=$(pgrep -f "$PHONE_SIM_ID.*/Loop.app/Loop" | head -1) ;;
 	# The app's own process, or its extension's for a WatchKit app with an extension.
-	watch) pgrep -f "$WATCH_SIM_ID.*/WatchApp.app/(WatchApp|PlugIns/WatchApp Extension)" >/dev/null ;;
+	watch) p=$(pgrep -f "$WATCH_SIM_ID.*/WatchApp.app/(WatchApp|PlugIns/WatchApp Extension)" | head -1) ;;
 	esac
+	[ -n "$p" ] && ps -wwE -p "$p" -o command= | grep -q DYLD_INSERT_LIBRARIES
 }
 . "$root/.sims${RIG:+-$RIG}" 2>/dev/null || true
 PHONE_SIM_ID=${PHONE_SIM:-${SIMS_PHONE:-}}
@@ -296,8 +324,8 @@ reset() {
 	"$SIM" phone back >/dev/null 2>&1 || true
 	"$SIM" pod back >/dev/null 2>&1 || true
 	[ -e "$RUN/watch-off" ] && "$SIM" watch on >/dev/null 2>&1
-	running phone || "$SIM" launch phone >/dev/null
-	running watch || "$SIM" launch watch >/dev/null
+	running phone || { say "the phone app is not running with the Bluetooth stand-in: launching it"; "$SIM" launch phone >/dev/null; }
+	running watch || { say "the watch app is not running with the Bluetooth stand-in: launching it"; "$SIM" launch watch >/dev/null; }
 	drivers
 	phone_home
 	watch_close_sheets

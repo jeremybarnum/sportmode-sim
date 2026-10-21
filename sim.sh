@@ -31,7 +31,8 @@
 # MUX_TRACE=1 (the mux logs every request and event for a peripheral), RIG=<name> (a second rig,
 # such as the production line's: its own Simulator pair in .sims-<name>, apps in build/dd-<name>, and
 # pod and sensor state in build/run-<name>; settings such as DEXCOM_APP=1 can go in .sims-<name>; one
-# rig runs at a time, as they share the simulators' sockets and ports), DEXCOM_APP=1 (at `start`:
+# rig runs at a time, as they share the simulators' sockets and ports), CONNECT_DELAY=<duration> (at `start`: each Bluetooth connect takes
+# that long, as over a radio; 0 by default), DEXCOM_APP=1 (at `start`:
 # the simulated G7 also plays the Dexcom app, for a build whose G7 code does not authenticate itself
 # and rides the Dexcom app's link, as stock G7SensorKit and the production line's watch do).
 set -eu
@@ -44,7 +45,7 @@ sims_file=$here/.sims${RIG:+-$RIG}
 
 # The simulators, at the commits this harness was tested with (LoopKit/g7sim and LoopKit/pod with
 # the changes proposed upstream; g7sim builds ImpossiBLE with its own patches).
-G7SIM=https://github.com/jeremybarnum/g7sim; G7SIM_COMMIT=6b2d483
+G7SIM=https://github.com/jeremybarnum/g7sim; G7SIM_COMMIT=7f79a01
 POD=https://github.com/jeremybarnum/pod;     POD_COMMIT=3823843
 
 [ -f "$sims_file" ] && . "$sims_file"
@@ -139,7 +140,7 @@ start() {
 		$interval ${DEXCOM_APP:+-dexcom-app} ${fresh:+-fresh -code 4321 -serial 7810293746}) >"$run/g7.log" 2>&1 </dev/null & }
 	sleep 1
 	# The mux refuses the socket if another provider (ImpossiBLE's menu bar app?) holds it; its log says.
-	started impossible-mux || { nohup "$out/impossible-mux" -api $MUX_API $G7_SOCK $POD_SOCK >"$run/mux.log" 2>&1 & }
+	started impossible-mux || { nohup "$out/impossible-mux" -api $MUX_API ${CONNECT_DELAY:+-connect-delay $CONNECT_DELAY} $G7_SOCK $POD_SOCK >"$run/mux.log" 2>&1 & }
 	sleep 1
 	status
 	started impossible-mux || { tail -2 "$run/mux.log"; exit 1; }
@@ -297,7 +298,11 @@ log) logof "${2:-}" "${3:-}" ;;
 applog) applog "${2:-}" ;;
 bundle) case "${2:-}" in phone) echo "$PHONE_ID" ;; watch) echo "$WATCH_ID" ;; *) exit 2 ;; esac ;;
 quit) quit "${2:-}" ;;
-since) f=$(applog "${2:-}"); awk -v t="${3:-00:00:00}" '$2 >= t' "$f" | grep -E "${4:-.}" | cut -c12-260 ;;
+since)
+	# A time of day later than now is yesterday's: a window that crosses midnight keeps its lines.
+	f=$(applog "${2:-}"); t=${3:-00:00:00}; day=$(date +%F)
+	[ "${t%%.*}" \> "$(date +%T)" ] && day=$(date -v-1d +%F)
+	awk -v t="$day $t" '($1 " " $2) >= t' "$f" | grep -E "${4:-.}" | cut -c12-260 ;;
 phone) phone "${2:-}" ;;
 pod) pod "${2:-}" "${3:-}" ;;
 watch) watch "${2:-}" ;;

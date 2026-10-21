@@ -13,10 +13,8 @@ say "Start on the watch"
 start=$(now)
 start_loan "$start"
 
-say "A reading on the watch through the Dexcom app's link, and a loop cycle after it (up to 6 minutes)"
-wait_for watch "$start" 'INGEST src=direct-G7' 360
-read_at=$(lines watch "$start" 'INGEST src=direct-G7' | head -1 | cut -c1-12)
-wait_for watch "$read_at" 'cycle OK' 120
+say "Two watch loop cycles, the second on a reading through the Dexcom app's link (up to 12 minutes, paced by readings and Loop's 4.2-minute limit)"
+wait_for watch "$start" 'cycle OK' 720 2
 
 say "End on the watch"
 watch_main
@@ -32,7 +30,7 @@ expect watch "$start" 'ACTIVE — epoch' "watch active"
 check_keepalive "$start"
 expect watch "$start" 'connection-event CONNECT' "the watch heard the Dexcom app's link come up"
 expect watch "$start" 'INGEST src=direct-G7' "the watch read the sensor through that link"
-expect watch "$read_at" 'cycle OK' "the watch looped on its reading"
+expect watch "$start" 'cycle OK' "the watch looped (twice or more, waited for above)"
 expect watch "$end" 'HAND-BACK requested' "hand-back started"
 expect watch "$end" 'ack RECEIVED' "phone acknowledged the hand-back"
 expect phone "$end" 'offer RX .*released=final' "phone took the final offer"

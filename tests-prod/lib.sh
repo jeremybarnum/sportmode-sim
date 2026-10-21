@@ -1,7 +1,7 @@
 # Helpers for the production line's test scripts (sourced): the bench helpers, on the prod rig, with
 # this line's labels and log lines.
 export RIG=${RIG:-prod}
-TAKE_BACK_CELL=${TAKE_BACK_CELL:-Pod on Watch}
+TAKE_BACK_CELL=${TAKE_BACK_CELL:-Pump Status}
 BOLUS_ACCEPTED=${BOLUS_ACCEPTED:-MANUAL BOLUS delivering}
 . "$(dirname "$0")/../tests/lib.sh"
 
