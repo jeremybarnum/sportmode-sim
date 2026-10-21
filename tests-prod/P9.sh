@@ -13,7 +13,7 @@ start=$(now)
 start_loan "$start"
 sleep 20
 sim watch off
-sleep 360
+tsleep 360
 tb=$(now)
 take_back
 wait_for phone "$tb" 'R37 audit armed' 30

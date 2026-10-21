@@ -31,7 +31,7 @@ say "Checks"
 expect_within phone "$granted" 'grant unconfirmed after 20s' 25 "the phone asked at +20 s"
 expect_none phone "$granted" 'grant CONFIRMED LOST' "no answer came from the silent watch"
 s=$(seconds_to phone "$granted" 'settle: link up|reclaim VERIFIED')
-if [ -n "$s" ] && awk -v s="$s" 'BEGIN { exit !(s >= 295 && s <= 345) }'; then pass "the phone took the pod back after its 5-minute timer and 15 s more ($s s after the grant)" ""
+if [ -n "$s" ] && awk -v s="$s" -v lo="$(( $(sc 300) - 5 ))" -v hi="$(( $(sc 300) + 45 ))" 'BEGIN { exit !(s >= lo && s <= hi) }'; then pass "the phone took the pod back after its 5-minute timer and 15 s more ($s s after the grant)" ""
 else fail "the phone took the pod back after its 5-minute timer and 15 s more (${s:-never} s after the grant)" ""; fi
 expect phone "$granted" 'reclaim VERIFIED' "the phone verified the pod"
 verdict

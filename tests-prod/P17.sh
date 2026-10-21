@@ -24,7 +24,7 @@ wait_for watch "$tb" 'REVOKED' 60
 wait_for phone "$tb" 'offer RX .*released=final' 60
 epoch1=$(lines phone "$tb" 'offer RX .*released=final' | head -1 | sed -n 's/.*\] e\([0-9]*\) .*/\1/p')
 say "A Start while the take-back's insulin check is pending: refused"
-sleep 30
+tsleep 30
 watch_close_sheets
 r=$(now)
 tap_start >/dev/null || true
@@ -32,7 +32,7 @@ sleep 10
 watch_shows_text "still checking the last session.s insulin" && pending_note=yes || pending_note=no
 
 say "The settle runs out (5 minutes and a half from the take-back)"
-sleep 270
+tsleep 270
 
 say "The pod back; a new loan, ended on the watch"
 sim pod back
