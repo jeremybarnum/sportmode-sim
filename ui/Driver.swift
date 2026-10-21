@@ -13,6 +13,7 @@
 //   press [s] <text>     press and hold it (default 2 s)
 //   slide <text>         drag a slide-to-confirm control from end to end
 //   field [text]         tap the first text field (or the first whose placeholder or label has the text)
+//   clear [text]         the same, and delete what it holds
 //   tapxy <x> <y>        tap a point, in points from the top left (a control with no label)
 //   pressxy <x> <y> [s]  press and hold a point (default 2 s)
 //   swipeleft <text>     swipe left on the element whose label contains the text (a row's actions)
@@ -85,13 +86,16 @@ final class Driver: XCTestCase {
             guard xy.count == 2 else { return (false, "tapxy <x> <y>") }
             app.coordinate(withNormalizedOffset: CGVector(dx: 0, dy: 0)).withOffset(CGVector(dx: xy[0], dy: xy[1])).tap()
             return (true, "tapped \(arg)")
-        case "field":
+        case "field", "clear":
             let fields = app.textFields.allElementsBoundByIndex.filter { field in
                 arg.isEmpty || field.label.contains(arg) || ((field.placeholderValue ?? "").contains(arg))
             }
             guard let field = fields.first else { return (false, "no text field \(arg)") }
             field.tap()
-            return (true, "tapped the text field")
+            if verb == "clear", let text = field.value as? String, text != field.placeholderValue {
+                field.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: text.count))
+            }
+            return (true, verb == "clear" ? "cleared the text field" : "tapped the text field")
         case "pressxy":
             let v = arg.split(separator: " ").compactMap { Double($0) }
             guard v.count >= 2 else { return (false, "pressxy <x> <y> [s]") }

@@ -62,3 +62,17 @@ watch_shows_text() { # regex [seconds]
 		sleep 2
 	done
 }
+
+# Carbs on the phone without a bolus: the meal screen fills in the recommended bolus, and saving
+# the carbs alone needs that amount cleared.
+phone_carbs() { # grams
+	dismiss_alert
+	ui phone tap "$PHONE_CARBS_OPEN"
+	ui phone type "$1"
+	ui phone tap "$PHONE_CARBS_CONTINUE"
+	ui phone wait 5 "Meal Bolus"
+	ui phone clear
+	"$UI" phone tap Done >/dev/null 2>&1 || true
+	ui phone tap "$PHONE_CARBS_SAVE"
+	"$UI" phone gone 10 "Meal Bolus" >/dev/null 2>&1 || phone_home
+}
