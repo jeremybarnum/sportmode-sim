@@ -32,8 +32,8 @@
 # MUX_TRACE=1 (the mux logs every request and event for a peripheral), RIG=<name> (a second rig,
 # such as the production line's: its own Simulator pair in .sims-<name>, apps in build/dd-<name>, and
 # pod and sensor state in build/run-<name>; settings such as DEXCOM_APP=1 can go in .sims-<name>; one
-# rig runs at a time, as they share the simulators' sockets and ports), CONNECT_DELAY=<duration> (at `start`: each Bluetooth connect takes
-# that long, as over a radio; 0 by default), DEXCOM_APP=1 (at `start`:
+# rig runs at a time, as they share the simulators' sockets and ports), CONNECT_DELAY=<duration> (at `start`: how long each Bluetooth connect
+# takes, as over a radio; 1500ms by default, 0 for at once), DEXCOM_APP=1 (at `start`:
 # the simulated G7 also plays the Dexcom app, for a build whose G7 code does not authenticate itself
 # and rides the Dexcom app's link, as stock G7SensorKit and the production line's watch do).
 set -eu
@@ -141,7 +141,9 @@ start() {
 		$interval ${DEXCOM_APP:+-dexcom-app} ${fresh:+-fresh -code 4321 -serial 7810293746}) >"$run/g7.log" 2>&1 </dev/null & }
 	sleep 1
 	# The mux refuses the socket if another provider (ImpossiBLE's menu bar app?) holds it; its log says.
-	started impossible-mux || { nohup "$out/impossible-mux" -api $MUX_API ${CONNECT_DELAY:+-connect-delay $CONNECT_DELAY} $G7_SOCK $POD_SOCK >"$run/mux.log" 2>&1 & }
+	# A radio takes time to bring a link up; at once, an app that launches beside its pod connects
+	# before it has finished starting.
+	started impossible-mux || { nohup "$out/impossible-mux" -api $MUX_API -connect-delay "${CONNECT_DELAY:-1500ms}" $G7_SOCK $POD_SOCK >"$run/mux.log" 2>&1 & }
 	sleep 1
 	status
 	started impossible-mux || { tail -2 "$run/mux.log"; exit 1; }

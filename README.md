@@ -112,6 +112,10 @@ and its own pod and sensor state (`build/run-prod`). Every command, `ui.sh` and 
 same `RIG`. One rig runs at a time, as the rigs share the simulators' sockets and ports: `sim.sh stop`
 before starting the other. Settings for a rig, such as `DEXCOM_APP=1`, can go in its `.sims-<name>`.
 
+Each Bluetooth connect takes 1.5 s, as over a radio (`CONNECT_DELAY` at `start`, `0` for at once): at once,
+an app launching beside its pod connects before it has finished starting, and stock Loop then stops on a
+launch-order bug that a device rarely meets.
+
 `DEXCOM_APP=1` at `start` has the simulated G7 also play the Dexcom app: a build whose G7 code does
 not authenticate itself (stock G7SensorKit) sees the sensor authenticated through the app's session
 and gets readings, and a watch in ride-only mode hears the app's link come up at each reading and
