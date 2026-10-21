@@ -1,0 +1,128 @@
+name: Cloud bench
+run-name: Cloud bench (${{ inputs.tests || 'T3' }} on ${{ inputs.workspace_branch || 'SportMode-bench' }})
+
+# The Sport Mode bench on one of GitHub's macOS runners, from nothing: the simulators and libraries,
+# a paired phone and watch Simulator, Loop's apps from a LoopWorkspace branch with the Simulator aids,
+# the phone onboarded by cloud/onboard.sh, then tests/run.sh. Everything README's Setup does by hand.
+on:
+  push:
+    branches: [cloud-ci]
+  workflow_dispatch:
+    inputs:
+      workspace_branch:
+        description: LoopWorkspace branch to test (jeremybarnum/LoopWorkspace)
+        default: SportMode-bench
+      tests:
+        description: "Tests for tests/run.sh: names (T1 T3), quick, or all"
+        default: T3
+      time_scale:
+        description: TIME_SCALE for the run
+        default: "5"
+
+concurrency:
+  group: cloud-bench
+  cancel-in-progress: true
+
+env:
+  WORKSPACE_BRANCH: ${{ inputs.workspace_branch || 'SportMode-bench' }}
+  TESTS: ${{ inputs.tests || 'T3' }}
+  TIME_SCALE: ${{ inputs.time_scale || '5' }}
+  WORKSPACE: ${{ github.workspace }}/../LoopWorkspace
+  # Unsigned machines: every target signed ad hoc, with one team so the bundle ids agree.
+  APPS_FLAGS: CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY=- PROVISIONING_PROFILE_SPECIFIER= DEVELOPMENT_TEAM=CI00000000
+
+jobs:
+  bench:
+    runs-on: macos-26
+    timeout-minutes: 240
+    steps:
+      - name: Xcode, Go, xcodegen
+        run: |
+          sudo xcode-select --switch /Applications/Xcode_26.4.app/Contents/Developer
+          command -v xcodegen >/dev/null || brew install xcodegen
+          go version
+          sysctl -n hw.ncpu hw.memsize machdep.cpu.brand_string
+          xcrun simctl list runtimes | grep -E "iOS|watchOS"
+
+      - uses: actions/checkout@v5
+
+      - name: LoopWorkspace with the Simulator aids
+        run: |
+          git clone --quiet https://github.com/jeremybarnum/LoopWorkspace "$WORKSPACE"
+          ./tree.sh "$WORKSPACE" "$WORKSPACE_BRANCH"
+
+      - name: Simulators, mux and libraries
+        run: ./sim.sh build
+
+      - name: Paired phone and watch Simulators
+        run: ./sim.sh sims
+
+      - name: Loop's phone and watch apps
+        timeout-minutes: 90
+        run: |
+          ./sim.sh apps || { grep -E " error:|BUILD FAILED" build/run/apps-build.log | head -40; exit 1; }
+          ./sim.sh install
+
+      - name: Tap drivers
+        run: ./ui.sh build
+
+      - name: Start the pod and sensor
+        run: ./sim.sh start -fresh
+
+      - name: Onboard the phone
+        timeout-minutes: 30
+        run: |
+          ./sim.sh launch phone
+          sleep 10
+          ./cloud/onboard.sh
+
+      - name: Watch app, and the watch reading the sensor
+        timeout-minutes: 15
+        run: |
+          t=$(date +%T)
+          ./sim.sh launch watch
+          sleep 5
+          ./sim.sh launch phone
+          for i in $(seq 1 84); do
+            l=$(./sim.sh since watch "$t" 'INGEST src=direct-G7' 2>/dev/null | tail -1)
+            [ -n "$l" ] && { echo "watch reads the sensor: $l"; exit 0; }
+            sleep 5
+          done
+          echo "the watch did not read the sensor in 7 minutes"; ./sim.sh log watch 60; exit 1
+
+      - name: Tests
+        timeout-minutes: 150
+        run: |
+          set -- $TESTS; [ "$1" = all ] && set --
+          tests/run.sh "$@"
+
+      - name: Test logs
+        if: always()
+        run: |
+          d=$(ls -dt build/results/*/ 2>/dev/null | head -1)
+          [ -n "$d" ] || { echo "no results"; exit 0; }
+          cat "$d/summary.txt" 2>/dev/null
+          for f in "$d"/*.log; do echo "::group::$(basename "$f")"; cat "$f"; echo "::endgroup::"; done
+
+      - name: Diagnostics
+        if: failure()
+        run: |
+          for s in pod g7 mux; do echo "::group::$s log"; ./sim.sh log $s 80 2>&1; echo "::endgroup::"; done
+          for s in phone watch; do echo "::group::$s app log"; ./sim.sh log $s 120 2>&1; echo "::endgroup::"; done
+          for s in phone watch; do echo "::group::$s driver"; tail -40 build/ui-$s.log 2>&1; echo "::endgroup::"; done
+          ./sim.sh status 2>&1; ./sim.sh range 2>&1
+          xcrun simctl list devices | grep -i "sport mode"
+          ls "$HOME/Library/Logs/DiagnosticReports" 2>/dev/null | grep -E "Loop|WatchApp" | tail
+
+      - name: Keep results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cloud-bench
+          path: |
+            build/results
+            build/onboard
+            build/run/*.log
+            build/ui-*.log
+          if-no-files-found: ignore
+          retention-days: 7

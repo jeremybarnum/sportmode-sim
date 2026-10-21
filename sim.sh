@@ -168,7 +168,7 @@ apps() {
 	mkdir -p "$run"
 	xcodebuild -workspace "$WORKSPACE/LoopWorkspace.xcworkspace" -scheme LoopWorkspace -configuration Debug \
 		-destination "platform=iOS Simulator,id=$PHONE" -derivedDataPath "$(dirname "$(dirname "$APPS")")" \
-		ONLY_ACTIVE_ARCH=YES build >"$run/apps-build.log" 2>&1 || { grep " error:" "$run/apps-build.log" | head; exit 1; }
+		ONLY_ACTIVE_ARCH=YES ${APPS_FLAGS:-} build >"$run/apps-build.log" 2>&1 || { grep " error:" "$run/apps-build.log" | head; exit 1; }
 	# An incremental build can leave a rebuilt framework unsigned in the app, and the app then
 	# cannot load that plugin: sign what is unsigned, ad hoc, as the build signs the rest.
 	for f in "$PHONE_APP"/Frameworks/* "$PHONE_APP"/PlugIns/* "$WATCH_APP"/Frameworks/* "$WATCH_APP"/PlugIns/*; do
