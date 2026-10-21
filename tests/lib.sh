@@ -76,7 +76,8 @@ fail() { printf '  FAIL  %s\n        %s\n' "$1" "$(echo "$2" | cut -c1-200)"; fa
 # The app logged a line matching regex since a time.
 expect() { # side since regex what
 	local l
-	l=$(lines "$1" "$2" "$3" | tail -1)
+	# The first line after the time is the one that decides it; a later one may belong to a later part.
+	l=$(lines "$1" "$2" "$3" | head -1)
 	if [ -n "$l" ]; then pass "$4" "$l"; else fail "$4" "no $1 line /$3/"; fi
 }
 
