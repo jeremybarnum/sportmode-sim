@@ -24,3 +24,24 @@ check_keepalive() { # since
 		expect watch "$1" 'HKWorkoutSession\(\.other\) started' "workout keepalive started"
 	fi
 }
+
+# Closed loop on, on the phone: a test that ends in an open loop (an unverified or unexplained
+# take-back) leaves it off, and the next test's watch would inherit an open loop.
+closed_loop_on() {
+	ui phone tap Settings
+	ui phone wait 5 "Closed Loop"
+	ui phone tree
+	if grep -q "label: 'Closed Loop', value: 0" /tmp/sportmode-ui/phone.tree; then
+		ui phone tap "Closed Loop"
+		say "closed loop switched back on"
+	fi
+	ui phone tap Done
+}
+
+# The texts of a Simulator's pending and delivered notifications.
+notifications() { # phone|watch [pending|delivered]
+	case "$1" in
+	phone) python3 "$root/tests/notifications.py" "$PHONE_SIM_ID" ${2:-} ;;
+	watch) python3 "$root/tests/notifications.py" "$WATCH_SIM_ID" ${2:-} ;;
+	esac
+}

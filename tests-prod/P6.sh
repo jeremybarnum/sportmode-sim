@@ -23,6 +23,8 @@ sim launch watch
 drivers
 say "A minute with the phone unable to reach the pod; then its Bluetooth back"
 sleep 60
+ui watch tree
+grep -q "couldn.t take the pod back yet" /tmp/sportmode-ui/watch.tree && note=yes || note=no
 on=$(now)
 sim phone radio-on
 wait_for phone "$on" 'reclaim VERIFIED' 180
@@ -30,6 +32,8 @@ wait_for phone "$on" 'reclaim VERIFIED' 180
 say "Checks"
 expect watch "$q" 'alert\] ISSUED .*sessionEnded' "the relaunched watch ended the loan (Sport Mode Ended)"
 expect phone "$q" 'offer RX .*released=final' "the recovered offer reached the phone"
-expect_between watch "$q" "$on" 'hand-back offer attempt [2-9]' "the watch kept resending while the phone could not take the pod"
+expect watch "$q" 'DENIED by phone — .* — drain keeps offering' "the refusal left the watch in its drain, still offering"
+expect_between watch "$q" "$on" 'hand-back offer attempt [2-9]|\[timer\] fired handback-resend' "the watch kept resending while the phone could not take the pod"
+[ "$note" = yes ] && pass "the watch said the iPhone couldn't take the pod back yet" "" || fail "the watch said the iPhone couldn't take the pod back yet" "not in the watch's element tree"
 expect phone "$on" 'reclaim VERIFIED' "the phone took the pod back once its Bluetooth was back"
 verdict

@@ -18,6 +18,11 @@ offline_start "$start"
 say "A watch loop cycle on its own reading (up to 6 minutes)"
 wait_for watch "$start" 'cycle OK' 360
 
+say "The Loop Failure notifications each device has scheduled, by name"
+titles_phone=$(notifications phone | grep -c "Loop Failure (iPhone)")
+titles_watch=$(notifications watch | grep -c "Loop Failure (Watch)")
+old_titles=$(notifications phone pending | cut -f2 | grep -cx "Loop Failure")
+
 say "The phone back; the reunion prompt; Hand Back"
 back=$(now)
 sim phone back
@@ -33,4 +38,7 @@ expect watch "$back" 'REUNION PROMPT' "the reunion prompt came when the phone wa
 expect phone "$back" 'RETRO-ACK — offer for a SEIZED loan' "the phone adopted the seized loan"
 expect phone "$back" 'reclaim VERIFIED' "the phone took the pod back"
 expect_clean phone "$back" 'reconcile\[AUTHORITATIVE\]' "the phone's audit over the watch's window"
+[ "$titles_watch" -gt 0 ] && pass "the watch's own Loop Failure is titled \"Loop Failure (Watch)\" ($titles_watch)" "" || fail "the watch's own Loop Failure is titled \"Loop Failure (Watch)\"" "none in the watch's notifications"
+[ "$titles_phone" -gt 0 ] && pass "the phone's Loop Failure is titled \"Loop Failure (iPhone)\" ($titles_phone)" "" || fail "the phone's Loop Failure is titled \"Loop Failure (iPhone)\"" "none in the phone's notifications"
+[ "$old_titles" = 0 ] && pass "no pending notification with the old title \"Loop Failure\"" "" || fail "no pending notification with the old title \"Loop Failure\" ($old_titles)" ""
 verdict
