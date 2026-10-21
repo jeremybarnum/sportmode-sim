@@ -14,7 +14,9 @@
 # The watch reads the pod at a resume only when its last read is over 6 min old (OmnipodKit's
 # isPumpDataStale, in real time): RELAUNCH_GAP=<seconds> keeps the watch app closed that long. With
 # the phone app running, the phone takes the pod back on the watch's silence first; BOTH=1 closes the
-# phone app too and reopens it after the watch has resumed, as when both Simulators were shut down.
+# phone app too and reopens it after the watch has resumed. SHUTDOWN=1: the phone app closed and the
+# watch Simulator shut down (not an app quit) for RELAUNCH_GAP s, then the watch booted and its app
+# opened, then the phone app; the watch's saved pump manager state is kept before and after.
 TEST=repro-salvage
 . "$(dirname "$0")/lib.sh"
 set -u
@@ -61,6 +63,32 @@ fi
 lt=$(now)
 
 ended=
+# The watch's saved pump manager state, while a loan runs.
+keep_state() { # name
+	local c
+	c=$(xcrun simctl get_app_container "$WATCH_SIM_ID" "$("$SIM" bundle watch)" data 2>/dev/null) || return 0
+	[ -f "$c/Documents/PumpManagerState.plist" ] || { say "no saved pump state ($1)"; return 0; }
+	plutil -convert xml1 -o "$RUN/pump-state-$1.xml" "$c/Documents/PumpManagerState.plist"
+	say "saved pump state ($1): unfinalizedTempBasal $(grep -c unfinalizedTempBasal "$RUN/pump-state-$1.xml"), kept in $RUN/pump-state-$1.xml"
+}
+if [ "${SHUTDOWN:-0}" = 1 ]; then
+	keep_state before
+	say "Phone app closed; watch Simulator shut down for ${RELAUNCH_GAP:-400} s"
+	sim quit phone
+	sim watch off
+	sleep "${RELAUNCH_GAP:-400}"
+	rw=$(now)
+	sim watch on
+	wait_for watch "$rw" 'RESUME: pump manager built' 180
+	sleep 20
+	keep_state after
+	lines watch "$rw" 'RESUME|RESUMED|JOURNALED|no command needed|enacting|pod-ble\] (send|receive)' | head -14
+	ended=$(lines watch "$rw" 'cancel JOURNALED|tempBasal JOURNALED' | head -1)
+	[ -n "$ended" ] || ended="nothing journaled after the reboot"
+	say "Phone app reopened"
+	"$SIM" launch phone >/dev/null
+	sleep 15
+fi
 if [ "${RELAUNCH:-0}" = 1 ]; then
 	say "Watch app quit and relaunched while the temp runs"
 	sim quit watch
