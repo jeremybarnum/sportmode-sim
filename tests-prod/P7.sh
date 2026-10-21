@@ -19,11 +19,10 @@ off=$(now)
 sim watch off
 wait_for phone "$off" 'warning 3 of 3 issued' 4200
 
-say "The watch back on; the phone takes the pod back"
+say "The watch back on: its app relaunches, which ends the loan, and the phone takes the pod back"
+tb=$(now)
 sim watch on
 drivers
-tb=$(now)
-take_back
 wait_for phone "$tb" 'reclaim VERIFIED' 360
 
 say "Checks"

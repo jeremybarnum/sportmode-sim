@@ -31,8 +31,9 @@ closed_loop_on() {
 	ui phone tap Settings
 	ui phone wait 5 "Closed Loop"
 	ui phone tree
+	# The switch itself, at the right of its row: a tap on the row's label does not toggle it.
 	if grep -q "label: 'Closed Loop', value: 0" /tmp/sportmode-ui/phone.tree; then
-		ui phone tap "Closed Loop"
+		ui phone tapxy 346 245
 		say "closed loop switched back on"
 	fi
 	ui phone tap Done
