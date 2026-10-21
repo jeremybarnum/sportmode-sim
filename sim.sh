@@ -28,22 +28,29 @@
 # set at `start` and kept for `launch`), PHONE_SIM, WATCH_SIM (Simulator UDIDs; default: the pair
 # `sims` made; zsh keeps WATCH for itself), WORKSPACE (a
 # LoopWorkspace checkout, for `apps`), APPS (a Build/Products directory, default build/dd's),
-# MUX_TRACE=1 (the mux logs every request and event for a peripheral).
+# MUX_TRACE=1 (the mux logs every request and event for a peripheral), RIG=<name> (a second rig,
+# such as the production line's: its own Simulator pair in .sims-<name>, apps in build/dd-<name>, and
+# pod and sensor state in build/run-<name>; settings such as DEXCOM_APP=1 can go in .sims-<name>; one
+# rig runs at a time, as they share the simulators' sockets and ports), DEXCOM_APP=1 (at `start`:
+# the simulated G7 also plays the Dexcom app, for a build whose G7 code does not authenticate itself
+# and rides the Dexcom app's link, as stock G7SensorKit and the production line's watch do).
 set -eu
 
 here=$(cd "$(dirname "$0")" && pwd)
 out=$here/build
-run=$out/run
+RIG=${RIG:-}
+run=$out/run${RIG:+-$RIG}
+sims_file=$here/.sims${RIG:+-$RIG}
 
 # The simulators, at the commits this harness was tested with (LoopKit/g7sim and LoopKit/pod with
 # the changes proposed upstream; g7sim builds ImpossiBLE with its own patches).
-G7SIM=https://github.com/jeremybarnum/g7sim; G7SIM_COMMIT=3f43670
+G7SIM=https://github.com/jeremybarnum/g7sim; G7SIM_COMMIT=01a96c0
 POD=https://github.com/jeremybarnum/pod;     POD_COMMIT=3823843
 
-[ -f "$here/.sims" ] && . "$here/.sims"
+[ -f "$sims_file" ] && . "$sims_file"
 PHONE=${PHONE_SIM:-${SIMS_PHONE:-}}
 WATCH=${WATCH_SIM:-${SIMS_WATCH:-}}
-APPS=${APPS:-$out/dd/Build/Products}
+APPS=${APPS:-$out/dd${RIG:+-$RIG}/Build/Products}
 PHONE_APP=$APPS/Debug-iphonesimulator/Loop.app
 WATCH_APP=$APPS/Debug-watchsimulator/WatchApp.app
 POD_SOCK=/tmp/impossible-pod.sock
@@ -99,17 +106,23 @@ sims() {
 	model() { xcrun simctl list runtimes -j | python3 -c "import json,sys; r=[r for r in json.load(sys.stdin)['runtimes'] if r['identifier']=='$1'][0]; print([t['identifier'] for t in r['supportedDeviceTypes'] if '$2' in t['identifier']][0])"; }
 	pr=${PHONE_RUNTIME:-$(runtime iOS)}; wr=${WATCH_RUNTIME:-$(runtime watchOS)}
 	pt=${PHONE_TYPE:-$(model "$pr" iPhone)}; wt=${WATCH_TYPE:-$(model "$wr" Apple-Watch)}
-	p=$(xcrun simctl create "Sport Mode Phone" "$pt" "$pr")
-	w=$(xcrun simctl create "Sport Mode Watch" "$wt" "$wr")
+	p=$(xcrun simctl create "Sport Mode Phone${RIG:+ ($RIG)}" "$pt" "$pr")
+	w=$(xcrun simctl create "Sport Mode Watch${RIG:+ ($RIG)}" "$wt" "$wr")
 	xcrun simctl pair "$w" "$p" >/dev/null
-	printf 'SIMS_PHONE=%s\nSIMS_WATCH=%s\n' "$p" "$w" >"$here/.sims"
+	printf 'SIMS_PHONE=%s\nSIMS_WATCH=%s\n' "$p" "$w" >"$sims_file"
 	xcrun simctl boot "$p"; xcrun simctl boot "$w"
-	echo "phone $p, watch $w (saved in .sims)"
+	echo "phone $p, watch $w (saved in $(basename "$sims_file"))"
 }
 
 started() { pgrep -f "$out/$1 " >/dev/null 2>&1; }
 
 start() {
+	# The simulators serve one rig at a time.
+	active=$(cat "$out/active-rig" 2>/dev/null || true)
+	if [ "${active:-bench}" != "${RIG:-bench}" ] && { started pod-sim || started g7-sim || started impossible-mux; }; then
+		echo "the ${active:-bench} rig's simulators are running: 'sim.sh stop' first" >&2; exit 2
+	fi
+	mkdir -p "$out"; echo "${RIG:-bench}" >"$out/active-rig"
 	fresh=${1:-}
 	podfresh=$fresh; [ "$fresh" = -fresh-pod ] && { fresh=; podfresh=-fresh; }
 	mkdir -p "$run"
@@ -123,7 +136,7 @@ start() {
 	# In a subshell for its working directory, which exec hands to the simulator, so nothing is left
 	# holding the terminal.
 	started g7-sim || { (cd "$run" && exec nohup "$out/g7-sim" -transport impossible -socket $G7_SOCK -api $G7_API \
-		$interval ${fresh:+-fresh -code 4321 -serial 7810293746}) >"$run/g7.log" 2>&1 </dev/null & }
+		$interval ${DEXCOM_APP:+-dexcom-app} ${fresh:+-fresh -code 4321 -serial 7810293746}) >"$run/g7.log" 2>&1 </dev/null & }
 	sleep 1
 	# The mux refuses the socket if another provider (ImpossiBLE's menu bar app?) holds it; its log says.
 	started impossible-mux || { nohup "$out/impossible-mux" -api $MUX_API $G7_SOCK $POD_SOCK >"$run/mux.log" 2>&1 & }

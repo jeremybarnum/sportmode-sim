@@ -115,9 +115,12 @@ static void sl_message(id self, SEL _cmd, WCSession *session, NSDictionary *mess
     arrive(^{ ((void (*)(id, SEL, id, id))appMessage)(self, _cmd, session, message); });
 }
 
+// A reply handler can be a block on the caller's stack: copied before it waits out the latency,
+// or the late delivery copies a block whose frame is gone.
 static void sl_messageReply(id self, SEL _cmd, WCSession *session, NSDictionary *message, id reply) {
     if (linkDown) { NSLog(@"SimLink: live message dropped, link down"); return; }
-    arrive(^{ ((void (*)(id, SEL, id, id, id))appMessageReply)(self, _cmd, session, message, reply); });
+    id replyBlock = [reply copy];
+    arrive(^{ ((void (*)(id, SEL, id, id, id))appMessageReply)(self, _cmd, session, message, replyBlock); });
 }
 
 static void sl_data(id self, SEL _cmd, WCSession *session, NSData *data) {
@@ -127,7 +130,8 @@ static void sl_data(id self, SEL _cmd, WCSession *session, NSData *data) {
 
 static void sl_dataReply(id self, SEL _cmd, WCSession *session, NSData *data, id reply) {
     if (linkDown) { NSLog(@"SimLink: live message dropped, link down"); return; }
-    arrive(^{ ((void (*)(id, SEL, id, id, id))appDataReply)(self, _cmd, session, data, reply); });
+    id replyBlock = [reply copy];
+    arrive(^{ ((void (*)(id, SEL, id, id, id))appDataReply)(self, _cmd, session, data, replyBlock); });
 }
 
 static void sl_userInfo(id self, SEL _cmd, WCSession *session, NSDictionary *userInfo) {

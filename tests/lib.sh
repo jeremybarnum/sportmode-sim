@@ -12,7 +12,7 @@ failed=0
 say() { printf '%s  %s\n' "$(date +%T)" "$*"; }
 
 # A step that cannot be done ends the test.
-abort() { say "STOPPED: $*" >&2; failed=1; verdict; }
+abort() { say "STOPPED: $*" >&2; failed=1; verdict >&2; }
 
 # ui <side> <command>: a tap or wait in an app; a failure ends the test.
 ui() { out=$("$UI" "$@" 2>&1) || abort "$out"; }
@@ -106,7 +106,7 @@ verdict() {
 
 # --- Steps shared by the tests ---
 
-RUN=$root/build/run
+RUN=$root/build/run${RIG:+-$RIG}
 # The run's time scale (sim.sh start TIME_SCALE=N): a wait the test itself chooses is divided by it.
 SCALE=$(cat "$RUN/time-scale" 2>/dev/null || echo 1)
 tsleep() { sleep $(awk -v s="$1" -v n="$SCALE" 'BEGIN { v = int(s / n); print (v < 1 ? 1 : v) }'); }
@@ -226,7 +226,7 @@ watch_bolus() { # units (a multiple of 0.5)
 	t0=$(now)
 	ui watch tap Bolus
 	ui watch double "Turn Digital"
-	wait_for watch "$t0" 'ACCEPTED by pod' 120
+	wait_for watch "$t0" 'MANUAL BOLUS .*ACCEPTED by pod' 120
 	# A pod gives a bolus over time (0.05 U every 2 s): let it finish before the next step.
 	sleep $(awk -v b="$1" 'BEGIN { printf "%d", b * 40 + 10 }')
 }
@@ -244,11 +244,13 @@ watch_bolus_send() { # units (a multiple of 0.5)
 	ui watch double "Turn Digital"
 }
 
-# A small watch bolus as fast as the taps go: one "+" from whatever the screen shows, no zeroing.
-watch_bolus_quick() {
+# A watch bolus as fast as the taps go: "+" (default once, 0.5 U each) from whatever the screen
+# shows, no zeroing.
+watch_bolus_quick() { # [plus taps]
+	local n=${1:-1}
 	watch_page 1
 	ui watch tap bolus
-	ui watch tap "+"
+	while [ "$n" -gt 0 ]; do ui watch tap "+"; n=$((n - 1)); done
 	ui watch tap Bolus
 	ui watch double "Turn Digital"
 }
@@ -265,7 +267,7 @@ watch_bolus_start() { # units (a multiple of 0.5)
 	t0=$(now)
 	ui watch tap Bolus
 	ui watch double "Turn Digital"
-	wait_for watch "$t0" 'ACCEPTED by pod' 120 >/dev/null
+	wait_for watch "$t0" 'MANUAL BOLUS .*ACCEPTED by pod' 120 >/dev/null
 	echo "$t0"
 }
 
