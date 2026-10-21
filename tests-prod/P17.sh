@@ -50,7 +50,7 @@ sleep 5
 say "Checks"
 expect phone "$r" 'grant REFUSED — this session.s insulin check is still pending' "a Start while the check was pending was refused"
 [ "$pending_note" = yes ] && pass "the watch said the iPhone is still checking the last session's insulin" "" || fail "the watch said the iPhone is still checking the last session's insulin" "not on the glance"
-expect_between phone "$tb" "$s2" "e$epoch1 (reconcile\\[AUTHORITATIVE\\]|R3[37]: audit NEVER RAN)" "the take-back's audit (e$epoch1) concluded, verified or reported unverified, before the next loan"
+expect_between phone "$tb" "$s2" "e$epoch1 (\\*\\* )?(reconcile\\[AUTHORITATIVE\\]|R3[37]: audit NEVER RAN)" "the take-back's audit (e$epoch1) concluded, verified or reported unverified, before the next loan"
 expect_between phone "$tb" "$s2" 'R33: audit NEVER RAN \(handback\)' "the answered take-back's check ended unverified at the settle limit"
 l=$(lines phone "$s2" "e$epoch1 reconcile\\[AUTHORITATIVE\\]" | head -1)
 if [ -z "$l" ]; then pass "the take-back's audit (e$epoch1) was not run on the next loan's reading" ""
