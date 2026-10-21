@@ -16,7 +16,7 @@ sleep 20
 ta=$(now)
 take_back
 wait_for watch "$ta" 'REVOKED' 60
-wait_for phone "$ta" 'R37 audit' 360
+wait_for phone "$ta" 'reclaim VERIFIED' 360
 
 say "(b) A new loan; the link cut; Take Back"
 reset
@@ -34,9 +34,10 @@ wait_for watch "$tb" 'REVOKED' 120
 say "Checks"
 expect phone "$ta" 'reclaim ladder LIVE' "(a) the phone took the live path"
 expect watch "$ta" 'REVOKED' "(a) the watch let the pod go"
-expect phone "$ta" 'R37 audit CLEAN' "(a) the audit was clean and dosing resumed"
+expect_clean phone "$ta" 'reconcile\[AUTHORITATIVE\]' "(a) the audit over the watch's window"
 expect phone "$tb" 'reclaim ladder LIVE' "(b) the phone took the live path"
 expect_within phone "$tb" 'reclaim revoke RESENT \(attempt 2 of 2\)' 15 "(b) the revoke resent at about +10 s"
 expect_within phone "$tb" 'force reclaim SALVAGE' 32 "(b) the take-back forced at about +25 s"
 expect watch "$tb" 'REVOKED' "(b) the watch let the pod go once the link was back"
+expect phone "$tb" 'R37 audit (CLEAN|WARN|OPEN)' "(b) the forced take-back's audit ruled"
 verdict

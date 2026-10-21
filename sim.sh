@@ -46,7 +46,7 @@ sims_file=$here/.sims${RIG:+-$RIG}
 
 # The simulators, at the commits this harness was tested with (LoopKit/g7sim and LoopKit/pod with
 # the changes proposed upstream; g7sim builds ImpossiBLE with its own patches).
-G7SIM=https://github.com/jeremybarnum/g7sim; G7SIM_COMMIT=7f79a01
+G7SIM=https://github.com/jeremybarnum/g7sim; G7SIM_COMMIT=d037cb4
 POD=https://github.com/jeremybarnum/pod;     POD_COMMIT=3823843
 
 [ -f "$sims_file" ] && . "$sims_file"
@@ -190,9 +190,24 @@ launch() {
 	*) echo "launch phone|watch" >&2; exit 2 ;;
 	esac
 	xcrun simctl terminate "$dev" "$id" 2>/dev/null || true
+	[ "$1" = phone ] && keep_phone_log
 	scale=${TIME_SCALE:-$(cat "$run/time-scale" 2>/dev/null || echo 1)}
 	SIMCTL_CHILD_DYLD_INSERT_LIBRARIES=$lib SIMCTL_CHILD_SIMLINK_FILE=$LINK SIMCTL_CHILD_SIMLINK_QUEUE=$SIMLINK_QUEUE \
 		SIMCTL_CHILD_SPORTMODE_TIME_SCALE=$scale xcrun simctl launch "$dev" "$id"
+}
+
+# A phone log that starts again at each launch (the production line keeps only the latest) is kept
+# here first, once, so a test's window survives the relaunches it makes.
+keep_phone_log() {
+	local f head
+	mkdir -p "$run"
+	f=$(applog phone 2>/dev/null) || return 0
+	[ -s "$f" ] || return 0
+	case "$(basename "$f")" in *latest*) ;; *) return 0 ;; esac
+	head=$(head -1 "$f")
+	[ "$head" = "$(cat "$run/phone-log-kept" 2>/dev/null)" ] && return 0
+	cat "$f" >>"$run/phone-earlier.log"
+	echo "$head" >"$run/phone-log-kept"
 }
 
 quit() {
@@ -307,7 +322,9 @@ since)
 	# A time of day later than now is yesterday's: a window that crosses midnight keeps its lines.
 	f=$(applog "${2:-}"); t=${3:-00:00:00}; day=$(date +%F)
 	[ "${t%%.*}" \> "$(date +%T)" ] && day=$(date -v-1d +%F)
-	awk -v t="$day $t" '($1 " " $2) >= t' "$f" | grep -E "${4:-.}" | cut -c12-260 ;;
+	# The phone's earlier launches first, as kept at each relaunch.
+	k=; [ "$2" = phone ] && [ -f "$run/phone-earlier.log" ] && k=$run/phone-earlier.log
+	awk -v t="$day $t" '($1 " " $2) >= t' $k "$f" | grep -E "${4:-.}" | cut -c12-260 ;;
 phone) phone "${2:-}" ;;
 pod) pod "${2:-}" "${3:-}" ;;
 watch) watch "${2:-}" ;;

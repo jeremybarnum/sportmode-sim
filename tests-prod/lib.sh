@@ -4,6 +4,7 @@ export RIG=${RIG:-prod}
 TAKE_BACK_CELL=${TAKE_BACK_CELL:-Pump Status}
 BOLUS_ACCEPTED=${BOLUS_ACCEPTED:-MANUAL BOLUS delivering}
 STATUS_SCREEN=${STATUS_SCREEN:-Pump Status}
+WATCH_BOLUS=${WATCH_BOLUS:-Bolus}
 . "$(dirname "$0")/../tests/lib.sh"
 
 # The workout keepalive starts with the loan, once the watch has Health permission to write

@@ -10,6 +10,7 @@ BAND=0.20      # an insulin check's residual counts as clean within ±BAND U
 # cell that opens the take-back sheet, and the watch line that says the pod has a manual bolus.
 TAKE_BACK_CELL=${TAKE_BACK_CELL:-Sport Mode}
 STATUS_SCREEN=${STATUS_SCREEN:-glucoseHUDView}   # an element only the phone's status screen shows
+WATCH_BOLUS=${WATCH_BOLUS:-bolus}                 # the watch control that opens the bolus screen
 BOLUS_ACCEPTED=${BOLUS_ACCEPTED:-MANUAL BOLUS .*ACCEPTED by pod}
 T0=$(date +%T) # the test's start: its logs are read from here
 failed=0
@@ -248,7 +249,7 @@ offline_start() {
 watch_bolus() { # units (a multiple of 0.5)
 	local n t0 shown
 	watch_page 1
-	ui watch tap bolus
+	ui watch tap "$WATCH_BOLUS"
 	ui watch wait 5 "+"
 	for n in 1 2 3 4; do "$UI" watch tap "−" >/dev/null 2>&1 || break; done
 	n=$(awk -v b="$1" 'BEGIN { printf "%d", b / 0.5 + 0.5 }')
@@ -269,7 +270,7 @@ watch_bolus() { # units (a multiple of 0.5)
 watch_bolus_send() { # units (a multiple of 0.5)
 	local n
 	watch_page 1
-	ui watch tap bolus
+	ui watch tap "$WATCH_BOLUS"
 	ui watch wait 5 "+"
 	for n in 1 2 3 4; do "$UI" watch tap "−" >/dev/null 2>&1 || break; done
 	n=$(awk -v b="$1" 'BEGIN { printf "%d", b / 0.5 + 0.5 }')
@@ -283,7 +284,7 @@ watch_bolus_send() { # units (a multiple of 0.5)
 watch_bolus_quick() { # [plus taps]
 	local n=${1:-1}
 	watch_page 1
-	ui watch tap bolus
+	ui watch tap "$WATCH_BOLUS"
 	while [ "$n" -gt 0 ]; do ui watch tap "+"; n=$((n - 1)); done
 	ui watch tap Bolus
 	ui watch double "Turn Digital"
@@ -293,7 +294,7 @@ watch_bolus_quick() { # [plus taps]
 watch_bolus_start() { # units (a multiple of 0.5)
 	local n t0
 	watch_page 1
-	ui watch tap bolus
+	ui watch tap "$WATCH_BOLUS"
 	ui watch wait 5 "+"
 	for n in 1 2 3 4; do "$UI" watch tap "−" >/dev/null 2>&1 || break; done
 	n=$(awk -v b="$1" 'BEGIN { printf "%d", b / 0.5 + 0.5 }')
@@ -357,6 +358,12 @@ watch_reads_sensor() {
 	"$SIM" launch watch >/dev/null
 	"$UI" ensure watch >/dev/null
 	wait_for watch "$since" 'INGEST src=direct-G7' 420
+}
+
+# The simulated pod's log lines since a time, matching a regex (it stamps whole seconds): what reached
+# the pod, whichever app sent it.
+pod_lines() { # since regex
+	awk -v t="${1%%.*}" 'match($0, /T[0-9][0-9]:[0-9][0-9]:[0-9][0-9]/) { s = substr($0, RSTART + 1, 8); if (s >= t) print s " " $0 }' "$RUN/pod.log" | grep -E "$2"
 }
 
 # A line matching regex between two times (one part of a test, before the next part starts).
