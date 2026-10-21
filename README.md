@@ -3,7 +3,7 @@
 Runs Loop's Sport Mode with no devices: the phone app and the watch app in a paired pair of
 Simulators, a simulated pod and a simulated sensor on the Mac. The Sport Mode bench tests run here,
 with the phone and the watch going out of reach, the watch shutting down and the pod going out of
-reach all done by commands. [TESTS.md](TESTS.md) has each test's steps.
+reach all done by commands. [TESTS.md](TESTS.md) has each test's steps; [TESTS-PROD.md](TESTS-PROD.md) the production line's tests, on a second rig.
 
 It is built on LoopKit's pod simulator and G7 simulator and the ImpossiBLE Bluetooth shim, with
 changes to each, on these forks:

@@ -14,12 +14,14 @@ fi
 echo $$ >"$lock"
 # The tap drivers are two test runners that stay attached to the apps; a run ends them with itself.
 trap 'rm -f "$lock"; "$here/../ui.sh" stop phone 2>/dev/null; "$here/../ui.sh" stop watch 2>/dev/null' EXIT
-dir=$here/../build/results/$(date +%Y%m%d-%H%M%S)
+# Another line's tests: TESTS_DIR=<its folder> (tests-prod/run.sh sets it, with RIG).
+tests=${TESTS_DIR:-$here}
+dir=$here/../build/results/${RIG:+$RIG-}$(date +%Y%m%d-%H%M%S)
 mkdir -p "$dir"
-[ $# -gt 0 ] || set -- $(ls "$here" | sed -n 's/^\(T[0-9]*\)\.sh$/\1/p' | sort -t T -k 2 -n)
+[ $# -gt 0 ] || set -- $(ls "$tests" | sed -n 's/^\([A-Z][0-9]*\)\.sh$/\1/p' | sort -k 1.2 -n)
 for t in "$@"; do
 	printf '%s  %s ...\n' "$(date +%T)" "$t"
-	if "$here/$t.sh" >"$dir/$t.log" 2>&1; then r=PASS; else r=FAIL; fi
+	if "$tests/$t.sh" >"$dir/$t.log" 2>&1; then r=PASS; else r=FAIL; fi
 	printf '%s  %s %s\n' "$(date +%T)" "$t" "$r" | tee -a "$dir/summary.txt"
 done
 echo "logs: $dir"

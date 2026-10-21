@@ -6,6 +6,10 @@ root=$(cd "$(dirname "$0")/.." && pwd)
 SIM=$root/sim.sh
 UI=$root/ui.sh
 BAND=0.20      # an insulin check's residual counts as clean within ±BAND U
+# What differs between lines (another line's lib.sh sets these before sourcing this one): the phone
+# cell that opens the take-back sheet, and the watch line that says the pod has a manual bolus.
+TAKE_BACK_CELL=${TAKE_BACK_CELL:-Sport Mode}
+BOLUS_ACCEPTED=${BOLUS_ACCEPTED:-MANUAL BOLUS .*ACCEPTED by pod}
 T0=$(date +%T) # the test's start: its logs are read from here
 failed=0
 
@@ -127,10 +131,11 @@ wait_reading() { # since seconds [count]
 running() { # phone|watch
 	case "$1" in
 	phone) pgrep -f "$PHONE_SIM_ID.*/Loop.app/Loop" >/dev/null ;;
-	watch) pgrep -f "$WATCH_SIM_ID.*/WatchApp.app/WatchApp" >/dev/null ;;
+	# The app's own process, or its extension's for a WatchKit app with an extension.
+	watch) pgrep -f "$WATCH_SIM_ID.*/WatchApp.app/(WatchApp|PlugIns/WatchApp Extension)" >/dev/null ;;
 	esac
 }
-. "$root/.sims" 2>/dev/null || true
+. "$root/.sims${RIG:+-$RIG}" 2>/dev/null || true
 PHONE_SIM_ID=${PHONE_SIM:-${SIMS_PHONE:-}}
 WATCH_SIM_ID=${WATCH_SIM:-${SIMS_WATCH:-}}
 
@@ -142,7 +147,7 @@ take_back() {
 	local i
 	for i in 1 2 3; do
 		dismiss_alert
-		ui phone "tap~" "Sport Mode"
+		ui phone "tap~" "$TAKE_BACK_CELL"
 		"$UI" phone wait 6 "Reclaim Now" >/dev/null 2>&1 && break
 		say "the take-back sheet did not open; tapping the cell again" >&2
 	done
@@ -226,7 +231,7 @@ watch_bolus() { # units (a multiple of 0.5)
 	t0=$(now)
 	ui watch tap Bolus
 	ui watch double "Turn Digital"
-	wait_for watch "$t0" 'MANUAL BOLUS .*ACCEPTED by pod' 120
+	wait_for watch "$t0" "$BOLUS_ACCEPTED" 120
 	# A pod gives a bolus over time (0.05 U every 2 s): let it finish before the next step.
 	sleep $(awk -v b="$1" 'BEGIN { printf "%d", b * 40 + 10 }')
 }
@@ -267,7 +272,7 @@ watch_bolus_start() { # units (a multiple of 0.5)
 	t0=$(now)
 	ui watch tap Bolus
 	ui watch double "Turn Digital"
-	wait_for watch "$t0" 'MANUAL BOLUS .*ACCEPTED by pod' 120 >/dev/null
+	wait_for watch "$t0" "$BOLUS_ACCEPTED" 120 >/dev/null
 	echo "$t0"
 }
 
