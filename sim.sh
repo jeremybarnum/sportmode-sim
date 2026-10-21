@@ -32,12 +32,12 @@
 # `sims` made; zsh keeps WATCH for itself), WORKSPACE (a
 # LoopWorkspace checkout, for `apps`), APPS (a Build/Products directory, default build/dd's),
 # MUX_TRACE=1 (the mux logs every request and event for a peripheral), RIG=<name> (a second rig,
-# such as the production line's: its own Simulator pair in .sims-<name>, apps in build/dd-<name>, and
+# with its own Simulator pair in .sims-<name>, apps in build/dd-<name>, and
 # pod and sensor state in build/run-<name>; settings such as DEXCOM_APP=1 can go in .sims-<name>; one
 # rig runs at a time, as they share the simulators' sockets and ports), CONNECT_DELAY=<duration> (at `start`: how long each Bluetooth connect
 # takes, as over a radio; 1500ms by default, 0 for at once), DEXCOM_APP=1 (at `start`:
 # the simulated G7 also plays the Dexcom app, for a build whose G7 code does not authenticate itself
-# and rides the Dexcom app's link, as stock G7SensorKit and the production line's watch do).
+# and rides the Dexcom app's link, as stock G7SensorKit does).
 set -eu
 
 here=$(cd "$(dirname "$0")" && pwd)
@@ -198,7 +198,7 @@ launch() {
 		SIMCTL_CHILD_SPORTMODE_TIME_SCALE=$scale xcrun simctl launch "$dev" "$id"
 }
 
-# A phone log that starts again at each launch (the production line keeps only the latest) is kept
+# A phone log that starts again at each launch (a build that keeps only the latest) is kept
 # here first, once, so a test's window survives the relaunches it makes.
 keep_phone_log() {
 	local f head

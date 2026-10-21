@@ -14,7 +14,7 @@ fi
 echo $$ >"$lock"
 # The tap drivers are two test runners that stay attached to the apps; a run ends them with itself.
 trap 'rm -f "$lock"; "$here/../ui.sh" stop phone 2>/dev/null; "$here/../ui.sh" stop watch 2>/dev/null' EXIT
-# Another line's tests: TESTS_DIR=<its folder> (tests-prod/run.sh sets it, with RIG).
+# Tests kept elsewhere: TESTS_DIR=<their folder>, with their RIG.
 tests=${TESTS_DIR:-$here}
 dir=$here/../build/results/${RIG:+$RIG-}$(date +%Y%m%d-%H%M%S)
 mkdir -p "$dir"
