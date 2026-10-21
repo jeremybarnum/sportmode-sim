@@ -53,10 +53,18 @@ nothing is pushed, and nothing of the aids reaches a device build. The aids for 
 A patch whose change the branch already has is skipped; one that no longer applies stops the script,
 and the aid then needs a version for that branch. `--aids prod-126` applies the production line's set.
 
-**Onboard the phone once** (the Simulators keep it): long-press the logo on Welcome to skip the setup,
-then in Settings add the G7 sensor (code 4321) and the Omnipod DASH pod (pair, prime, insert). A bolus
-on the phone asks the Simulator's passcode: 0000. Then `./sim.sh launch watch`, and before the first
-Start wait for the watch to read the sensor and log `dormant grant refreshed`.
+**Onboard the phone once** (the Simulators keep it), by hand in the Simulator window or with `ui.sh`:
+- On Welcome, hold the Loop logo for 3 s (2 s is not enough): setup is skipped with example settings.
+  Allow Health access ("Turn On All", Allow), and close "Turn On Alarms": a Simulator app cannot have
+  critical alerts, so it comes up at each launch.
+- CGM: Dexcom G7, Pair Sensor, "Sensor Is On, Continue", "Enter Code by Hand": 4321, Continue; then
+  Not Now for Dexcom Share.
+- Pump: Omnipod, Continue, Next, Next, an insulin, Continue, Omnipod DASH, Confirm Pod Type, Pair pod;
+  after priming Continue, Continue, Confirm; slide to insert the cannula, Continue, Yes, Finish Setup.
+
+Then `./sim.sh launch watch`, and `./sim.sh launch phone` again: the phone sees a watch app installed
+after it only at its next launch. Before the first Start wait for the watch to read the sensor and log
+`dormant grant refreshed`. A bolus on the phone asks the Simulator's passcode: 0000.
 
 ## Commands
 

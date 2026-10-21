@@ -11,6 +11,8 @@ reset
 say "Start on the watch"
 start=$(now)
 start_loan "$start"
+# The phone must have heard the watch take over: away before that, it ends a loan it never saw start.
+wait_for phone "$start" 'until the watch took over' 30
 
 say "Phone out of reach; End on the watch"
 sim phone away

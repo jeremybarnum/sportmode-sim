@@ -13,6 +13,8 @@ say "Start on the watch, one loop cycle"
 start=$(now)
 start_loan "$start"
 wait_for watch "$start" 'CYCLE VERDICT computed=ok' 400
+# The phone must have heard the watch take over: away before that, it ends a loan it never saw start.
+wait_for phone "$start" 'until the watch took over' 30
 
 say "Phone out of reach; 0.5 U bolus on the watch"
 sim phone away
