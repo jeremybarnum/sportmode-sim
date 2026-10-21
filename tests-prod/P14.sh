@@ -34,6 +34,8 @@ tb=$(now)
 take_back
 wait_for watch "$tb" 'REVOKED' 60
 wait_for phone "$tb" 'R37 audit|reclaim VERIFIED' 360
+say "Let the bolus finish (about 80 s from its start), so the next test starts with none under way"
+sleep 90
 
 say "Checks"
 expect watch "$te" 'End REFUSED — the watch.s bolus is still being delivered' "(a) End refused during the bolus"
