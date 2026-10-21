@@ -36,15 +36,20 @@ jobs:
     runs-on: macos-26
     timeout-minutes: 240
     steps:
-      - name: Xcode, Go, xcodegen
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: stable
+          cache: false
+
+      - name: Xcode and xcodegen
         run: |
           sudo xcode-select --switch /Applications/Xcode_26.4.app/Contents/Developer
           command -v xcodegen >/dev/null || brew install xcodegen
           go version
           sysctl -n hw.ncpu hw.memsize machdep.cpu.brand_string
           xcrun simctl list runtimes | grep -E "iOS|watchOS"
-
-      - uses: actions/checkout@v5
 
       - name: LoopWorkspace with the Simulator aids
         run: |
