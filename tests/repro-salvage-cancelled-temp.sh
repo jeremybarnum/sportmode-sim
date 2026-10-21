@@ -11,6 +11,10 @@
 # until then, so the temp comes after that offer, as in the dry run. RELAUNCH=1: instead of raising
 # glucose, the watch app is quit and relaunched while the temp runs, as happened in the dry run: there
 # the resumed watch journaled a cancel from its first pod read though the pod was still on the temp.
+# The watch reads the pod at a resume only when its last read is over 6 min old (OmnipodKit's
+# isPumpDataStale, in real time): RELAUNCH_GAP=<seconds> keeps the watch app closed that long. With
+# the phone app running, the phone takes the pod back on the watch's silence first; BOTH=1 closes the
+# phone app too and reopens it after the watch has resumed, as when both Simulators were shut down.
 TEST=repro-salvage
 . "$(dirname "$0")/lib.sh"
 set -u
@@ -60,13 +64,20 @@ ended=
 if [ "${RELAUNCH:-0}" = 1 ]; then
 	say "Watch app quit and relaunched while the temp runs"
 	sim quit watch
-	sleep 3
+	[ "${BOTH:-0}" = 1 ] && sim quit phone
+	say "watch app closed for ${RELAUNCH_GAP:-3} s${BOTH:+, the phone app too}"
+	sleep "${RELAUNCH_GAP:-3}"
 	rw=$(now)
 	sim launch watch
 	wait_for watch "$rw" 'RESUME: pump manager built|RESUMED' 120
 	logged_within watch "$rw" 'cancel JOURNALED|tempBasal JOURNALED' 120 || true
 	ended=$(lines watch "$rw" 'cancel JOURNALED|tempBasal JOURNALED' | head -1)
 	lines watch "$rw" 'RESUME|RESUMED|no command needed|enacting' | head -6
+	if [ "${BOTH:-0}" = 1 ]; then
+		say "Phone app reopened"
+		"$SIM" launch phone >/dev/null
+		sleep 15
+	fi
 	[ -n "$ended" ] || ended="nothing journaled after the relaunch"
 fi
 [ -n "$ended" ] || say "Glucose up to the target, a reading at a time, until the watch ends that temp"
