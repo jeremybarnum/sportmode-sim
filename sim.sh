@@ -44,7 +44,7 @@ sims_file=$here/.sims${RIG:+-$RIG}
 
 # The simulators, at the commits this harness was tested with (LoopKit/g7sim and LoopKit/pod with
 # the changes proposed upstream; g7sim builds ImpossiBLE with its own patches).
-G7SIM=https://github.com/jeremybarnum/g7sim; G7SIM_COMMIT=01a96c0
+G7SIM=https://github.com/jeremybarnum/g7sim; G7SIM_COMMIT=6b2d483
 POD=https://github.com/jeremybarnum/pod;     POD_COMMIT=3823843
 
 [ -f "$sims_file" ] && . "$sims_file"
@@ -258,7 +258,16 @@ watch() {
 applog() { # phone|watch
 	case "$1" in
 	phone) c=$(xcrun simctl get_app_container "$PHONE" "$PHONE_ID" data); echo "$c/Documents/g7phone-latest.log" ;;
-	watch) c=$(xcrun simctl get_app_container "$WATCH" "$WATCH_ID" data); echo "$c/Documents/g7watch.log" ;;
+	watch)
+		c=$(xcrun simctl get_app_container "$WATCH" "$WATCH_ID" data); f=$c/Documents/g7watch.log
+		# A WatchKit extension keeps its own container, beside the app's.
+		if [ ! -f "$f" ]; then
+			for d in "$(dirname "$c")"/../PluginKitPlugin/*; do
+				[ "$(plutil -extract MCMMetadataIdentifier raw "$d/.com.apple.mobile_container_manager.metadata.plist" 2>/dev/null)" = "$WATCH_ID.watchkitextension" ] \
+					&& { f=$d/Documents/g7watch.log; break; }
+			done
+		fi
+		echo "$f" ;;
 	esac
 }
 

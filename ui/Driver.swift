@@ -13,6 +13,7 @@
 //   press [s] <text>     press and hold it (default 2 s)
 //   slide <text>         drag a slide-to-confirm control from end to end
 //   tapxy <x> <y>        tap a point, in points from the top left (a control with no label)
+//   pressxy <x> <y> [s]  press and hold a point (default 2 s)
 //   swipeleft <text>     swipe left on the element whose label contains the text (a row's actions)
 //   crown <turns> [v]    turn the crown (watch); 1.0 is a full turn; v in turns per second
 //   sys <label>          tap a button of a system sheet or alert (phone)
@@ -83,6 +84,12 @@ final class Driver: XCTestCase {
             guard xy.count == 2 else { return (false, "tapxy <x> <y>") }
             app.coordinate(withNormalizedOffset: CGVector(dx: 0, dy: 0)).withOffset(CGVector(dx: xy[0], dy: xy[1])).tap()
             return (true, "tapped \(arg)")
+        case "pressxy":
+            let v = arg.split(separator: " ").compactMap { Double($0) }
+            guard v.count >= 2 else { return (false, "pressxy <x> <y> [s]") }
+            app.coordinate(withNormalizedOffset: CGVector(dx: 0, dy: 0)).withOffset(CGVector(dx: v[0], dy: v[1]))
+                .press(forDuration: v.count > 2 ? v[2] : 2)
+            return (true, "pressed \(arg)")
         case "slide":
             // A slide-to-confirm control: drag from its left end to its right end.
             guard let element = find(arg, contains: true, in: app, within: timeout) else { return (false, "no \(arg)") }
