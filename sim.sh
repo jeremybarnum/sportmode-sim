@@ -21,6 +21,7 @@
 #   sim.sh pod slow <s>     the pod's next state-changing command waits <s> before it is accepted
 #   sim.sh link slow <s>|normal  each live phone–watch message arrives <s> late, or on time again
 #   sim.sh link down|up     the phone–watch link alone cut, each still in reach of the pod and sensor
+#   sim.sh glucose <mg/dL>|walk <mg/dL>|sine <mg/dL> <amplitude>  what the sensor reads from now on
 #   sim.sh phone radio-off|radio-on  Bluetooth off on the phone (it reads powered off), the watch link up
 #   sim.sh watch off|on     shut the watch Simulator down; boot it and launch the watch app
 #   sim.sh quit phone|watch end the app (a force quit)
@@ -339,5 +340,13 @@ pod) pod "${2:-}" "${3:-}" ;;
 watch) watch "${2:-}" ;;
 link) linkcmd "${2:-}" "${3:-}" ;;
 range) curl -s -m 3 "localhost${MUX_API}/range"; echo; [ -f "$LINK" ] && echo "link: $(cat "$LINK")" || echo "link: up" ;;
+glucose)
+	case "${2:-}" in
+	walk) body="{\"kind\":\"walk\",\"value\":${3:-120}}" ;;
+	sine) body="{\"kind\":\"sine\",\"value\":${3:-120},\"amplitude\":${4:-30}}" ;;
+	[0-9]*) body="{\"kind\":\"fixed\",\"value\":$2}" ;;
+	*) echo "glucose <mg/dL>|walk <mg/dL>|sine <mg/dL> <amplitude>" >&2; exit 2 ;;
+	esac
+	curl -s -m 3 -X POST "localhost${G7_API}/glucose" -d "$body" >/dev/null && echo "glucose: $body" ;;
 *) sed -n 2,27p "$0" | sed 's/^# \{0,1\}//'; exit 2 ;;
 esac
