@@ -38,6 +38,9 @@ start() { # side
 	esac
 	stop "$1" 2>/dev/null || true
 	mkdir -p "$q"; rm -f "$q/$1".*; echo "$id" >"$q/$1.app"
+	# Booted here, not by xcodebuild: xcodebuild shuts down a Simulator it booted when its run
+	# ends, and a run ends the drivers with itself.
+	xcrun simctl bootstatus "$dev" -b >/dev/null 2>&1 || true
 	nohup xcodebuild test-without-building -xctestrun "$run" -destination "id=$dev" \
 		>"$out/ui-$1.log" 2>&1 &
 	echo $! >"$q/$1.pid"

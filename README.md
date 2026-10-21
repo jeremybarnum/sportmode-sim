@@ -23,7 +23,7 @@ the mux), xcodegen (`brew install xcodegen`, for the tap drivers), and a LoopWor
 Sport Mode branch, for example:
 
 ```sh
-git clone --recurse-submodules https://github.com/jeremybarnum/LoopWorkspace ~/src/LoopWorkspace
+git clone https://github.com/jeremybarnum/LoopWorkspace ~/src/LoopWorkspace   # tree.sh fetches the submodules
 ```
 
 Then, from this repository:

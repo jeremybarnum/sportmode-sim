@@ -453,8 +453,16 @@ phone_home() {
 dismiss_alert() {
 	local b
 	"$UI" phone tree >/dev/null 2>&1 || return 0
-	grep -q "Alert," /tmp/sportmode-ui/phone.tree || return 0
-	for b in Close OK Dismiss; do shows phone "$b" && { "$UI" phone tap "$b" >/dev/null 2>&1; return 0; }; done
+	if grep -q "Alert," /tmp/sportmode-ui/phone.tree; then
+		for b in Close OK Dismiss; do shows phone "$b" && { "$UI" phone tap "$b" >/dev/null 2>&1; return 0; }; done
+	fi
+	# Newer builds put "Turn On Alarms" where the element tree does not reach. It comes up only
+	# with the "Alarms are turned OFF" banner: tap where its Close is, and if nothing was there,
+	# the tap opened the insulin chart under it: go back.
+	grep -q "Alarms are turned OFF" /tmp/sportmode-ui/phone.tree || return 0
+	"$UI" phone tapxy 127 565 >/dev/null 2>&1
+	sleep 1
+	shows phone BackButton && "$UI" phone tap BackButton >/dev/null 2>&1
 	return 0
 }
 
@@ -472,12 +480,17 @@ age_watch_ledger() { # file hours
 	say "the watch's last pod reading now reads $at"
 }
 
-# Carbs entered on the phone, saved without a bolus.
+# Carbs entered on the phone, saved without a bolus. The meal screen fills in the recommended
+# bolus when there is one ("Save Carbs & Deliver"): clear it, or the save asks for the passcode
+# and saves nothing.
 phone_carbs() { # grams
 	dismiss_alert
 	ui phone tap "$PHONE_CARBS_OPEN"
 	ui phone type "$1"
 	ui phone tap "$PHONE_CARBS_CONTINUE"
+	ui phone wait 5 "Meal Bolus"
+	ui phone clear
+	"$UI" phone tap Done >/dev/null 2>&1 || true
 	ui phone tap "$PHONE_CARBS_SAVE"
 	# Back on the status screen; the toolbar alone proves nothing, it is on every screen.
 	"$UI" phone gone 10 "Meal Bolus" >/dev/null 2>&1 || phone_home
