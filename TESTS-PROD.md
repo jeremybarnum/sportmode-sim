@@ -24,21 +24,22 @@ does today and change when the ruling is built.
 | Test | What it proves | State |
 |---|---|---|
 | P1 | Ordinary loan: takeover, the watch reads through the Dexcom app's link and loops, End, a clean audit | Scripted; passes 10-21 |
-| P2 | Takeover fails with the pod out of reach: the lease runs out, takeoverFailed, the phone takes the pod back silently | Scripted; *pending: 60 s lease* |
-| P3 | The grant does not reach the watch: the phone's query at +20 s takes the pod back; a watch silent through the takeover: "Watch Loan Not Confirmed" at 5 min | Scripted: the silent watch; the lost grant needs a link that drops one message |
+| P2 | Takeover fails with the pod out of reach: the lease runs out, takeoverFailed, the phone takes the pod back silently | Passes 10-21; *pending: 60 s lease* |
+| P3 | The grant does not reach the watch: the phone's query at +20 s takes the pod back; a watch silent through the takeover: "Watch Loan Not Confirmed" at 5 min | Passes 10-21 (the silent watch); the lost grant needs a link that drops one message |
 | P4 | A Start interrupted by quitting the watch app: takeoverFailed at relaunch, the phone takes the pod back | Scripted; passes 10-21 |
-| P5 | The watch app relaunched mid-loan ends the loan: "Sport Mode Ended", the recovered offer resent every 15 s until acknowledged, the phone takes the pod back | Scripted (decided: relaunch ends the loan) |
-| P6 | The same with the phone unable to reach the pod (its Bluetooth off) | Needs a harness addition; *to be fixed in this build* |
+| P5 | The watch app relaunched mid-loan ends the loan: "Sport Mode Ended", the recovered offer resent every 15 s until acknowledged, the phone takes the pod back | Passes 10-21 (decided: relaunch ends the loan) |
+| P6 | The same with the phone unable to reach the pod (its Bluetooth off) | Scripted (pass = the fixed behaviour); *to be fixed in this build* |
 | P7 | A silent watch: "Watch Not Reporting" at about 20, 40, 60 min while the phone has fresh glucose; none while it has not; no take-back on a timer | *pending: take on silence vs warn* |
-| P8 | Take Back, watch live: revoke, resend at +10 s, force at +25 s if unanswered; dosing paused until the audit rules | Scripted; *pending: single-path Take Back* |
-| P9 | Take Back, watch silent past 330 s: force at once | Scripted; *pending: single-path Take Back* |
-| P10 | Take Back with the pod out of reach: "Watch Session Unverified" at 5 min, the loop opens | Scripted; *pending: single-path Take Back* |
-| P11 | Offline start with the phone away, then the reunion and the retro-acknowledgement | Scripted |
-| P12 | Start with the phone unreachable waits 8 s before offering the offline start | Scripted |
+| P8 | Take Back, watch live: revoke, resend at +10 s, force at +25 s if unanswered; dosing paused until the audit rules | Passes 10-21; *pending: single-path Take Back* |
+| P9 | Take Back, watch silent past 330 s: force at once | Passes 10-21; *pending: single-path Take Back* |
+| P10 | A forced Take Back (the watch not answering) with the pod out of reach: "Watch Session Unverified" at 5 min, the loop opens | Scripted; *pending: single-path Take Back* |
+| P11 | Offline start with the phone away, then the reunion and the retro-acknowledgement | Passes 10-21 |
+| P12 | Start with the phone unreachable waits 8 s before offering the offline start | Passes 10-21 |
 | P13 | The watch's standing copy refreshed after an insulin and a carb entry on the phone; the status probe on the immediate channel | To script |
-| P14 | A watch bolus and carbs during a loan; End refused during a watch bolus; Take Back during a bolus | Scripted (the bolus parts) |
+| P14 | A watch bolus and carbs during a loan; End refused during a watch bolus; Take Back during a bolus | Passes 10-21 (the bolus parts) |
 | P15 | The predicted-low warning on the watch; Missed Meal Notifications off and on | Partly: needs scripted glucose |
 | P16 | A hand-back that gives up: "End didn't go through" and the loan carries on | When built |
+| P17 | A Take Back the watch answers, the pod out of reach past the 5-minute settle, then a new loan: the take-back's audit concluded (verified or reported unverified) before the next loan; no false open loop | Scripted; fails on prod-126: the audit is left open (finding 10-21) |
 
 Not testable here: the workout keepalive's effect (the Simulator does not suspend apps as a watch
 does), the glance asking for the wrist up, radio contention and range, watchOS ending the app in the
@@ -57,8 +58,9 @@ permission.
 
 **P2.** `sim.sh pod away`, then Start. Pass: watch `takeover read <k>/14` up to 14, then
 `TAKEOVER FAILED` or `TAKEOVER ABORTED — grant lease expired`; phone
-`[advert] … listen END (watch reported takeover failed …)`, then `settle:` and `reclaim VERIFIED` after
-`pod back`; no notification on the phone.
+`[advert] … listen END (watch reported takeover failed …)`; after `pod back` the phone reaches the pod
+again (this path opens no settle window: the pod's own log shows the phone's next command); no
+notification on the phone.
 
 **P3.** (a) Link down at the moment of the grant (`sim.sh link` cut after the phone logs `GRANT`), back
 before +20 s. Pass: phone `grant unconfirmed after 20s`, watch `status query … the grant never reached
@@ -84,16 +86,18 @@ Pass: phone `watch SILENT — no report for <m> min`, then `warning <k> of 3 iss
 `Watch Not Reporting` at about 20, 40 and 60 min; no take-back. A second run with the phone's sensor
 reading stopped: no warning.
 
-**P8.** In a loan, Take Back on the phone (the `Pod on Watch` tile, then `Reclaim Now`). Pass: phone
-`reclaim ladder LIVE`; watch `REVOKED`; audit `R37 audit CLEAN`. With the watch not answering
-(`sim.sh link` cut): `reclaim revoke RESENT (attempt 2 of 2)` at +10 s, `force reclaim SALVAGE` at
-+25 s.
+**P8.** In a loan, Take Back on the phone (the `Pump Status` tile, then `Reclaim Now`). Pass: phone
+`reclaim ladder LIVE`; watch `REVOKED`; `reconcile[AUTHORITATIVE]` within ±0.20 U. With the watch not
+answering (`sim.sh link down`): `reclaim revoke RESENT (attempt 2 of 2)` at +10 s, the forced take-back
+at +25 s (`R37 audit armed`; `force reclaim SALVAGE` only when there are records to salvage), then
+`R37 audit CLEAN`.
 
 **P9.** In a loan, the watch off for over 330 s, then Take Back. Pass: phone `reclaim ladder DEAD —
-… force NOW`, `force reclaim SALVAGE`, the `Watch Session Ended Without Hand-Back` notice.
+… force NOW`, `R37 audit armed` at once, no resend.
 
-**P10.** In a loan, `pod away`, then Take Back. Pass: at 5 min phone `R37: audit NEVER RAN … Session
-UNVERIFIED, loop OPENS` and the notice `Watch Session Unverified`.
+**P10.** In a loan, the link cut and the pod out of reach, then Take Back: forced at +25 s. Pass: at
+5 min phone `R37: audit NEVER RAN … Session UNVERIFIED, loop OPENS` and the notice `Watch Session
+Unverified`. (A take-back the watch answers gets no such ending: see P17.)
 
 **P11.** Phone away, Start, `Start Anyway`. Pass: watch `REQUEST wait shortened`, `[seize] REQUEST TIMED
 OUT — offering offline start`, `SEIZE confirmed`, `seized loan ACTIVE`. Phone back: watch `phone is back
@@ -109,6 +113,13 @@ refreshed` after each, at most once per 30 s. In a loan: watch `RX statusQuery c
 watch `End REFUSED — the watch's bolus is still being delivered`, alert `Couldn't End Sport Mode`; End
 after the bolus hands back. A carb entry on the watch reaches the phone. Take Back during a watch bolus
 goes through (this line does not refuse it).
+
+**P17.** Start; the pod out of reach; Take Back (the watch answers). Wait 5½ minutes. Pod back; a new
+loan, ended on the watch. Pass: `e<n> reconcile[AUTHORITATIVE]` or `R37: audit NEVER RAN` for the
+take-back's loan before the next grant; none of it after; no `R32 OPEN LOOP`. On prod-126 the settle
+ceiling clears a live take-back's audit silently (`PodLoanPhoneController.swift:621`; only a forced
+one is reported unverified, :629): the next loan's audit replaces it, or, when the next takeover
+fails, it runs later on a reading that includes the gap's basal and opens the loop.
 
 **P15.** Scripted glucose falling with no carbs, in a loan. Pass: watch `[lowbg] WARNED · <title>`
 (`Likely low in <n> mins` and similar); with recent carbs, `no warning — carbs too recent`. Missed Meal
