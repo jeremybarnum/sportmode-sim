@@ -3,8 +3,9 @@
 # each is refused with the seconds left, and goes through once the bolus has finished. (b2): an End
 # moments after a watch bolus is sent, before the pod accepts it, is refused too. A 2 U bolus takes
 # the simulated pod about 80 s (0.05 U every 2 s), as a DASH pod; for (b2) the pod is made to hold
-# the bolus command 3 s before accepting it (under the 5 s the watch waits for a reply). (b3): a bolus sent while an
-# End's hand-back waits for the phone's answer (the link made 3 s slow each way) stops the release.
+# the bolus command 3 s before accepting it (under the 5 s the watch waits for a reply). (b3): a watch
+# bolus asked for while an End's hand-back waits for the phone's answer (the link made 3 s slow each
+# way) is refused, "Bolus Not Sent", and the End completes (ruled 2026-10-21).
 TEST=T22
 . "$(dirname "$0")/lib.sh"
 set -u
@@ -66,27 +67,27 @@ tb2=$(now)
 take_back
 wait_for watch "$tb2" 'CLOSED — ' 120
 
-say "a new loan; (b3) End, then a watch bolus while the hand-back waits for the phone's answer"
+say "a new loan; (b3) End, then a watch bolus asked for while the hand-back waits for the phone's answer"
 # Each live message arrives 3 s late, so the phone's acknowledgement reaches the watch about 7 s
-# after the End: the bolus goes out in between, and the watch must not release the pod for it.
+# after the End: the bolus is asked for in between, and the watch must refuse it.
 d0=$(now)
 start_loan "$d0"
+not_sent=$(python3 "$root/tests/notifications.py" "$WATCH_SIM_ID" delivered | grep -c "Bolus Not Sent")
 sim link slow 3
 watch_main
 td=$(now)
 ui watch tap End
-# 2 U, about 80 s: still being given when the hand-back catches up with it and checks the release.
-# A short one can be over by then, and the release then rightly goes through.
-watch_bolus_quick 4
+# The bolus taps as fast as they go; the refusal may come at any step, so none of them ends the test.
+watch_page 1
+for step in "tap $WATCH_BOLUS" "tap +" "tap +" "tap +" "tap +" "tap Bolus" "double Turn Digital"; do
+	"$UI" watch $step >/dev/null 2>&1 || true
+done
 sleep 20
 sim link normal
-say "wait for the bolus to finish, then End again"
-sleep 70
+wait_for watch "$td" 'CLOSED — ' 120
+wait_for phone "$td" 'reclaim VERIFIED' 120
 watch_close_sheets
-watch_main
-td2=$(now)
-"$UI" watch tap End >/dev/null 2>&1 || true
-sleep 15
+not_sent2=$(python3 "$root/tests/notifications.py" "$WATCH_SIM_ID" delivered | grep -c "Bolus Not Sent")
 
 say "Checks"
 expect phone "$a" 'grant REFUSED — this phone.s bolus is still being given' "(a) Start refused while the phone's bolus is being given"
@@ -104,8 +105,11 @@ expect_none_between phone "$te" "$c" 'offer RX' "(b2) no hand-back offer reached
 expect phone "$tb" 'take-back REFUSED — the pod is giving the watch.s bolus' "(c) Take Back refused while the watch's bolus is being given"
 expect_none_between watch "$tb" "$tb2" 'REVOKED' "(c) the loan continued during the bolus (no REVOKED)"
 expect watch "$tb2" 'REVOKED' "(c) the Take Back after the bolus took the pod"
-expect watch "$td" 'HAND-BACK refused at the release — a bolus is being given' "(b3) the release refused for a bolus sent while the hand-back waited"
-expect_none_between watch "$td" "$td2" 'drain complete|CLOSED — ' "(b3) the loan continued, the pod stayed on the watch"
-expect phone "$td" 'offer RX .*released=interim.*state=loaned' "(b3) the phone took the interim offer and stayed aside"
-expect_none_between phone "$td" "$td2" 'released=final|settle|reclaim VERIFIED|reconcile\[AUTHORITATIVE\]' "(b3) the phone did not take the pod back before the second End"
+expect watch "$td" 'BOLUS REFUSED — .*an End is waiting' "(b3) the bolus asked for while the End waited was refused"
+expect_none watch "$td" 'MANUAL BOLUS .*enacting' "(b3) no bolus sent to the pod"
+[ "$not_sent2" -gt "$not_sent" ] && pass "(b3) the watch said \"Bolus Not Sent\"" "" || fail "(b3) the watch said \"Bolus Not Sent\"" "no new such notification"
+expect watch "$td" 'drain complete' "(b3) the End went on: the drain completed"
+expect watch "$td" 'CLOSED — ' "(b3) the End completed"
+expect phone "$td" 'reclaim VERIFIED' "(b3) the phone took the pod back"
+expect_clean phone "$td" 'reconcile\[AUTHORITATIVE\]' "(b3) the phone's audit"
 verdict
