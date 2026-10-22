@@ -25,7 +25,7 @@ concurrency:
 
 env:
   WORKSPACE_BRANCH: ${{ inputs.workspace_branch || 'SportMode-bench' }}
-  TESTS: ${{ inputs.tests || 'T3' }}
+  TESTS: ${{ inputs.tests || 'all' }}
   TIME_SCALE: ${{ inputs.time_scale || '5' }}
   WORKSPACE: ${{ github.workspace }}/../LoopWorkspace
   # Unsigned machines: every target signed ad hoc, with one team so the bundle ids agree.
