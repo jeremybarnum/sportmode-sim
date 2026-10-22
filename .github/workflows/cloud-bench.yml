@@ -1,5 +1,5 @@
 name: Cloud bench
-run-name: Cloud bench (${{ inputs.tests || 'T3' }} on ${{ inputs.workspace_branch || 'SportMode-bench' }})
+run-name: Cloud bench (${{ inputs.tests || 'all' }} on ${{ inputs.workspace_ref || inputs.workspace_branch || 'SportMode-bench' }})
 
 # The Sport Mode bench on one of GitHub's macOS runners, from nothing: the simulators and libraries,
 # a paired phone and watch Simulator, Loop's apps from a LoopWorkspace branch with the Simulator aids,
@@ -18,13 +18,30 @@ on:
       time_scale:
         description: TIME_SCALE for the run
         default: "5"
+  # Called from a LoopWorkspace workflow, to test the commit that was pushed there.
+  workflow_call:
+    inputs:
+      workspace_ref:
+        description: LoopWorkspace branch or commit to test
+        type: string
+        required: true
+      tests:
+        type: string
+        default: quick
+      time_scale:
+        type: string
+        default: "5"
+      harness_ref:
+        description: sportmode-sim branch or commit that runs it
+        type: string
+        default: main
 
 concurrency:
-  group: cloud-bench
+  group: cloud-bench-${{ inputs.workspace_ref || github.ref }}
   cancel-in-progress: true
 
 env:
-  WORKSPACE_BRANCH: ${{ inputs.workspace_branch || 'SportMode-bench' }}
+  WORKSPACE_BRANCH: ${{ inputs.workspace_ref || inputs.workspace_branch || 'SportMode-bench' }}
   TESTS: ${{ inputs.tests || 'all' }}
   TIME_SCALE: ${{ inputs.time_scale || '5' }}
   WORKSPACE: ${{ github.workspace }}/../LoopWorkspace
@@ -40,7 +57,11 @@ jobs:
     runs-on: macos-26
     timeout-minutes: 240
     steps:
+      # The harness itself, also when another repository calls this workflow.
       - uses: actions/checkout@v5
+        with:
+          repository: jeremybarnum/sportmode-sim
+          ref: ${{ inputs.harness_ref || '' }}
 
       - uses: actions/setup-go@v5
         with:
