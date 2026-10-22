@@ -154,9 +154,26 @@ advance "~Omnipod" 60 pumpHUDView
 "$UI" phone "tap~" Omnipod >/dev/null || fail "could not pick Omnipod"
 say "tapped ~Omnipod"
 advance "Pair Pod" 180 "Omnipod DASH" "Confirm Pod Type" "~Novolog, A rapid-acting insulin, Unselected" "Next" "Continue" "Allow"
-advance "Slide to Insert Cannula" 300 "Pair Pod" "~Pair " "Continue" "Allow"
-"$UI" phone slide "Slide to Insert Cannula" >/dev/null || fail "could not slide to insert"
+# The pairing and insertion screens name their one button by its state (OmnipodKit's
+# PairPodViewModel and InsertCannulaViewModel): pair, then wait for "paired"; slide, then wait for
+# "inserted". "Retry" is an error.
+wait_label() { # label seconds what (in 60 s waits: ui.sh gives a command 150 s to answer)
+	local end=$(($(date +%s) + $2))
+	while [ "$(date +%s)" -lt "$end" ]; do
+		"$UI" phone wait 60 "$1" >/dev/null 2>&1 && return 0
+		shows Retry && fail "$3 failed"
+	done
+	fail "$3 did not finish"
+}
+tap "Pair pod." || fail "no Pair pod button"
+say "pairing and priming"
+wait_label "Pod paired successfully. Continue." 300 "pairing and priming"
+tap "Pod paired successfully. Continue." || fail "could not continue after pairing"
+advance "Slide Button to insert Cannula" 120 "Continue" "Yes" "Allow"
+"$UI" phone slide "Slide Button to insert Cannula" >/dev/null || fail "could not slide to insert"
 say "slid to insert the cannula"
+wait_label "Cannula inserted successfully. Continue." 300 "cannula insertion"
+tap "Cannula inserted successfully. Continue." || fail "could not continue after insertion"
 drain 300 "Yes" "Continue" "Finish Setup"
 
 say "Closed Loop on"
