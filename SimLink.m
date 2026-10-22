@@ -20,8 +20,23 @@
 // cancelled, as on a device. Application context, which the Simulators do
 // deliver, stays with the system.
 //
+// "wedge" in the control file is the field's one-way wedge (#113 variant A): isReachable
+// still reads YES, but each live message is lost, and its sender hears a timeout
+// after $SIMLINK_LIVE_TIMEOUT seconds (default 15).
+//
+// With SIMLINK_LIVE=1 this library carries the live messages too (sendMessage,
+// sendMessageData, and their replies), through folders like the queued channels',
+// instead of the paired Simulators: on a small machine those can take minutes to
+// deliver one while reachable reads YES. As on a device, a message the receiver
+// does not take within the timeout (its app not running, not yet activated, or
+// without the delegate method the message needs) fails to its sender, payloads
+// must be property lists of at most 65,536 bytes, and a reply that does not come
+// in 60 s times out. Reachability, activation and application context stay with
+// the system.
+//
 // Control file: $SIMLINK_FILE, default /tmp/sportmode-sim-link. Queues:
-// $SIMLINK_QUEUE/to-phone and to-watch, default /tmp/sportmode-sim-queue.
+// $SIMLINK_QUEUE/to-phone and to-watch, default /tmp/sportmode-sim-queue; live
+// messages $SIMLINK_QUEUE/live-to-phone and live-to-watch.
 
 #import <Foundation/Foundation.h>
 #import <WatchConnectivity/WatchConnectivity.h>
@@ -36,6 +51,9 @@ static dispatch_queue_t slowQueue;          // where they wait, in arrival order
 static dispatch_queue_t heldQueue;          // the held deliveries, in arrival order
 static NSMutableArray<dispatch_block_t> *held;
 static NSDictionary *deliveredContext;      // the last application context the app was given
+static BOOL wedged;                         // "wedge": reachable, and every live message lost
+static BOOL liveCarried;                    // SIMLINK_LIVE=1: this library carries the live messages
+static double liveTimeout;                  // seconds a live message waits to be taken
 
 static BOOL readDown(void) {
     NSString *s = [[NSString stringWithContentsOfFile:controlPath encoding:NSUTF8StringEncoding error:nil]
@@ -43,6 +61,9 @@ static BOOL readDown(void) {
     double slow = [s hasPrefix:@"slow "] ? [[s substringFromIndex:5] doubleValue] : 0;
     if (slow != latency) NSLog(@"SimLink: live messages %@", slow > 0 ? [NSString stringWithFormat:@"%.1f s late", slow] : @"on time");
     latency = slow;
+    BOOL wedge = [s isEqualToString:@"wedge"];
+    if (wedge != wedged) NSLog(@"SimLink: link %@", wedge ? @"WEDGED (reachable, live messages lost)" : @"no longer wedged");
+    wedged = wedge;
     return [s isEqualToString:@"down"];
 }
 
@@ -204,11 +225,31 @@ static NSError *notReachable(void) {
                            userInfo:@{NSLocalizedDescriptionKey: @"WatchConnectivity session on paired device is not reachable."}];
 }
 
+static NSError *wcError(WCErrorCode code, NSString *description) {
+    return [NSError errorWithDomain:WCErrorDomain code:code userInfo:@{NSLocalizedDescriptionKey: description}];
+}
+
+static NSError *timedOut(void) {
+    return wcError(WCErrorCodeMessageReplyTimedOut, @"Message reply took too long.");
+}
+
+static void sendLive(NSString *kind, id payload, id replyHandler, void (^errorHandler)(NSError *));
+
+// A live message lost on a wedged link: the sender hears only, after the timeout, that it timed out.
+static void loseToWedge(void (^errorHandler)(NSError *)) {
+    NSLog(@"SimLink: live message lost, link wedged");
+    if (!errorHandler) return;
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(liveTimeout * NSEC_PER_SEC)),
+                   dispatch_get_global_queue(QOS_CLASS_UTILITY, 0), ^{ errorHandler(timedOut()); });
+}
+
 static void sl_sendMessage(WCSession *self, SEL _cmd, NSDictionary *message, id replyHandler, void (^errorHandler)(NSError *)) {
     if (linkDown) {
         if (errorHandler) dispatch_async(dispatch_get_global_queue(QOS_CLASS_UTILITY, 0), ^{ errorHandler(notReachable()); });
         return;
     }
+    if (wedged) { loseToWedge(errorHandler); return; }
+    if (liveCarried) { sendLive(@"message", message, replyHandler, errorHandler); return; }
     ((void (*)(id, SEL, id, id, id))origSendMessage)(self, _cmd, message, replyHandler, errorHandler);
 }
 
@@ -217,6 +258,8 @@ static void sl_sendMessageData(WCSession *self, SEL _cmd, NSData *data, id reply
         if (errorHandler) dispatch_async(dispatch_get_global_queue(QOS_CLASS_UTILITY, 0), ^{ errorHandler(notReachable()); });
         return;
     }
+    if (wedged) { loseToWedge(errorHandler); return; }
+    if (liveCarried) { sendLive(@"data", data, replyHandler, errorHandler); return; }
     ((void (*)(id, SEL, id, id, id))origSendMessageData)(self, _cmd, data, replyHandler, errorHandler);
 }
 
@@ -232,18 +275,21 @@ static NSDictionary *sl_receivedApplicationContext(WCSession *self, SEL _cmd) {
 
 #pragma mark - The queued channels
 
-// One item: a property list, named so that names sort in sending order. Returns its path.
-static NSString *enqueue(NSDictionary *item) {
+// One item in a folder: a property list, named so that names sort in sending order. Returns its path.
+static NSString *enqueueIn(NSString *dir, NSDictionary *item) {
     static uint64_t counter;
     NSString *name = [NSString stringWithFormat:@"%020llu-%06llu.plist",
-                      (unsigned long long)(NSDate.date.timeIntervalSince1970 * 1e6), (unsigned long long)++counter];
+                      (unsigned long long)(NSDate.date.timeIntervalSince1970 * 1e6),
+                      (unsigned long long)__atomic_add_fetch(&counter, 1, __ATOMIC_RELAXED)];
     NSData *data = [NSPropertyListSerialization dataWithPropertyList:item format:NSPropertyListBinaryFormat_v1_0 options:0 error:nil];
-    NSString *tmp = [outbox stringByAppendingPathComponent:[@"." stringByAppendingString:name]];
+    NSString *tmp = [dir stringByAppendingPathComponent:[@"." stringByAppendingString:name]];
     if (!data || ![data writeToFile:tmp atomically:NO]) { NSLog(@"SimLink: could not queue %@", item[@"kind"]); return nil; }
-    NSString *path = [outbox stringByAppendingPathComponent:name];
+    NSString *path = [dir stringByAppendingPathComponent:name];
     rename(tmp.fileSystemRepresentation, path.fileSystemRepresentation);
     return path;
 }
+
+static NSString *enqueue(NSDictionary *item) { return enqueueIn(outbox, item); }
 
 static id queueUserInfo(NSDictionary *userInfo, BOOL complication) {
     NSString *path = enqueue(@{@"kind": @"userInfo", @"userInfo": userInfo ?: @{}});
@@ -312,6 +358,115 @@ static void drainInbox(void) {
     }
 }
 
+#pragma mark - The live messages (SIMLINK_LIVE=1)
+
+static NSString *liveOutbox, *liveInbox;
+static dispatch_queue_t liveQueue;          // the sends' bookkeeping and the deliveries, in order
+static NSMutableDictionary<NSString *, NSDictionary *> *pending;   // id -> the sender's handlers; on liveQueue
+static const NSUInteger maxLivePayload = 65536;
+static const double replyTimeout = 60;
+
+// A sent message answered, failed, or done with: its handlers hear so, once. On liveQueue.
+static void finish(NSString *ident, id reply, NSError *error) {
+    NSDictionary *p = pending[ident];
+    if (!p) return;
+    [pending removeObjectForKey:ident];
+    void (^errorHandler)(NSError *) = p[@"error"];
+    void (^replyHandler)(id) = p[@"reply"];
+    dispatch_queue_t q = dispatch_get_global_queue(QOS_CLASS_UTILITY, 0);
+    if (error) {
+        if (errorHandler) dispatch_async(q, ^{ errorHandler(error); });
+    } else if (replyHandler && reply) {
+        dispatch_async(q, ^{ replyHandler(reply); });
+    }
+}
+
+static void sendLive(NSString *kind, id payload, id replyHandler, void (^errorHandler)(NSError *)) {
+    // What the system refuses before sending: a payload that is not a property list, or too large.
+    NSData *bytes = [kind isEqual:@"data"] ? payload
+        : [NSPropertyListSerialization dataWithPropertyList:payload ?: @{} format:NSPropertyListBinaryFormat_v1_0 options:0 error:nil];
+    NSError *refused = !bytes ? wcError(WCErrorCodePayloadUnsupportedTypes, @"Payload contains unsupported type.")
+        : bytes.length > maxLivePayload ? wcError(WCErrorCodePayloadTooLarge, @"Payload is too large.") : nil;
+    if (refused) {
+        NSLog(@"SimLink: live %@ refused: %@", kind, refused.localizedDescription);
+        if (errorHandler) dispatch_async(dispatch_get_global_queue(QOS_CLASS_UTILITY, 0), ^{ errorHandler(refused); });
+        return;
+    }
+    NSString *ident = NSUUID.UUID.UUIDString;
+    id reply = [replyHandler copy], error = [errorHandler copy];
+    dispatch_async(liveQueue, ^{
+        NSMutableDictionary *p = [NSMutableDictionary dictionary];
+        if (reply) p[@"reply"] = reply;
+        if (error) p[@"error"] = error;
+        pending[ident] = p;
+        NSString *path = enqueueIn(liveOutbox, @{@"kind": kind, @"id": ident, @"payload": payload ?: @{}, @"wantsReply": @(reply != nil)});
+        if (!path) { finish(ident, nil, wcError(WCErrorCodeDeliveryFailed, @"Delivery failed.")); return; }
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(liveTimeout * NSEC_PER_SEC)), liveQueue, ^{
+            // Still in the folder: never taken. Removing it here and taking it there cannot both succeed.
+            if (unlink(path.fileSystemRepresentation) == 0) {
+                NSLog(@"SimLink: live %@ not taken in %.0f s: timed out", kind, liveTimeout);
+                finish(ident, nil, timedOut());
+            } else if (!reply) {
+                finish(ident, nil, nil);
+            } else {
+                dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(replyTimeout * NSEC_PER_SEC)), liveQueue, ^{
+                    finish(ident, nil, timedOut());
+                });
+            }
+        });
+    });
+}
+
+// What came in, in order: answers to this app's messages, and messages for it, taken while it can
+// take them (a delegate, an activated session). Through the delegate's hooked methods, so a message
+// meets the link as the system's would: dropped while it is down, late while it is slow. On liveQueue.
+static void drainLive(void) {
+    WCSession *session = WCSession.defaultSession;
+    id delegate = session.delegate;
+    BOOL ready = delegate && session.activationState == WCSessionActivationStateActivated;
+    NSArray *names = [[NSFileManager.defaultManager contentsOfDirectoryAtPath:liveInbox error:nil]
+                      sortedArrayUsingSelector:@selector(compare:)];
+    for (NSString *name in names) {
+        if ([name hasPrefix:@"."]) continue;
+        NSString *path = [liveInbox stringByAppendingPathComponent:name];
+        NSDictionary *item = [NSPropertyListSerialization propertyListWithData:[NSData dataWithContentsOfFile:path] ?: [NSData data]
+                                                                       options:0 format:NULL error:nil];
+        if (!item) continue;
+        NSString *kind = item[@"kind"], *ident = item[@"id"];
+        BOOL answer = [kind isEqual:@"reply"] || [kind isEqual:@"failed"];
+        if (!answer && !ready) continue;   // left for its sender to time out, as on a device
+        // Taken by moving it aside: fails if its sender gave up on it first.
+        NSString *taken = [liveInbox stringByAppendingPathComponent:[@".taken-" stringByAppendingString:name]];
+        if (rename(path.fileSystemRepresentation, taken.fileSystemRepresentation) != 0) continue;
+        unlink(taken.fileSystemRepresentation);
+        if ([kind isEqual:@"reply"]) { finish(ident, item[@"payload"], nil); continue; }
+        if ([kind isEqual:@"failed"]) { finish(ident, nil, wcError([item[@"code"] integerValue], item[@"why"])); continue; }
+        // A sender long gone (its app ended before its timeout): a device would never deliver it.
+        double sent = [[name substringToIndex:MIN(name.length, 20)] doubleValue] / 1e6;
+        if (NSDate.date.timeIntervalSince1970 - sent > liveTimeout + 5) {
+            NSLog(@"SimLink: stale live %@ dropped", kind);
+            continue;
+        }
+        BOOL data = [kind isEqual:@"data"], wantsReply = [item[@"wantsReply"] boolValue];
+        SEL sel = data ? (wantsReply ? @selector(session:didReceiveMessageData:replyHandler:) : @selector(session:didReceiveMessageData:))
+                       : (wantsReply ? @selector(session:didReceiveMessage:replyHandler:) : @selector(session:didReceiveMessage:));
+        if (![delegate respondsToSelector:sel]) {
+            NSLog(@"SimLink: live %@ refused: the app has no %@", kind, NSStringFromSelector(sel));
+            enqueueIn(liveOutbox, @{@"kind": @"failed", @"id": ident, @"code": @(WCErrorCodeDeliveryFailed),
+                                    @"why": @"Delivery failed: the counterpart does not take this message."});
+            continue;
+        }
+        if (wantsReply) {
+            void (^replyBlock)(id) = ^(id response) {
+                dispatch_async(liveQueue, ^{ enqueueIn(liveOutbox, @{@"kind": @"reply", @"id": ident, @"payload": response ?: @{}}); });
+            };
+            ((void (*)(id, SEL, id, id, id))objc_msgSend)(delegate, sel, session, item[@"payload"], replyBlock);
+        } else {
+            ((void (*)(id, SEL, id, id))objc_msgSend)(delegate, sel, session, item[@"payload"]);
+        }
+    }
+}
+
 static IMP swap(SEL sel, IMP replacement) {
     Method m = class_getInstanceMethod([WCSession class], sel);
     if (!m) { NSLog(@"SimLink: WCSession has no %@", NSStringFromSelector(sel)); return NULL; }
@@ -356,7 +511,17 @@ static void SimLinkLoad(void) {
     inbox = [queue stringByAppendingPathComponent:@"to-phone"];
 #endif
     filesDir = [queue stringByAppendingPathComponent:@"files"];
-    for (NSString *dir in @[outbox, inbox, filesDir]) {
+#if TARGET_OS_WATCH
+    liveOutbox = [queue stringByAppendingPathComponent:@"live-to-phone"];
+    liveInbox = [queue stringByAppendingPathComponent:@"live-to-watch"];
+#else
+    liveOutbox = [queue stringByAppendingPathComponent:@"live-to-watch"];
+    liveInbox = [queue stringByAppendingPathComponent:@"live-to-phone"];
+#endif
+    NSDictionary *env = NSProcessInfo.processInfo.environment;
+    liveCarried = [env[@"SIMLINK_LIVE"] isEqualToString:@"1"];
+    liveTimeout = [env[@"SIMLINK_LIVE_TIMEOUT"] doubleValue] ?: 15;
+    for (NSString *dir in @[outbox, inbox, filesDir, liveOutbox, liveInbox]) {
         [NSFileManager.defaultManager createDirectoryAtPath:dir withIntermediateDirectories:YES attributes:nil error:nil];
     }
     heldQueue = dispatch_queue_create("SimLink.held", DISPATCH_QUEUE_SERIAL);
@@ -373,7 +538,18 @@ static void SimLinkLoad(void) {
     swap(@selector(outstandingUserInfoTransfers), (IMP)sl_outstandingUserInfoTransfers);
     swap(@selector(transferFile:metadata:), (IMP)sl_transferFile);
     linkDown = readDown();
-    NSLog(@"SimLink: loaded, control file %@, link %@", controlPath, linkDown ? @"DOWN" : @"UP");
+    NSLog(@"SimLink: loaded, control file %@, link %@, live messages carried by %@", controlPath,
+          linkDown ? @"DOWN" : @"UP", liveCarried ? @"SimLink" : @"the Simulators");
+    if (liveCarried) {
+        liveQueue = dispatch_queue_create("SimLink.live", DISPATCH_QUEUE_SERIAL);
+        pending = [NSMutableDictionary dictionary];
+        dispatch_source_t live = dispatch_source_create(DISPATCH_SOURCE_TYPE_TIMER, 0, 0, liveQueue);
+        dispatch_source_set_timer(live, dispatch_time(DISPATCH_TIME_NOW, 0), 50 * NSEC_PER_MSEC, 10 * NSEC_PER_MSEC);
+        dispatch_source_set_event_handler(live, ^{ drainLive(); });
+        dispatch_resume(live);
+        static dispatch_source_t keepLive;
+        keepLive = live;
+    }
     // A serial queue of its own: the change runs the delegate, which may take a while.
     dispatch_queue_t q = dispatch_queue_create("SimLink.watch", DISPATCH_QUEUE_SERIAL);
     dispatch_source_t timer = dispatch_source_create(DISPATCH_SOURCE_TYPE_TIMER, 0, 0, q);

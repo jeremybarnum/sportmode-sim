@@ -21,6 +21,7 @@
 #   sim.sh pod slow <s>     the pod's next state-changing command waits <s> before it is accepted
 #   sim.sh link slow <s>|normal  each live phone–watch message arrives <s> late, or on time again
 #   sim.sh link down|up     the phone–watch link alone cut, each still in reach of the pod and sensor
+#   sim.sh link wedge|unwedge  reachable, but each live message lost (its sender times out), or delivered again
 #   sim.sh glucose <mg/dL>|walk <mg/dL>|sine <mg/dL> <amplitude>  what the sensor reads from now on
 #   sim.sh phone radio-off|radio-on  Bluetooth off on the phone (it reads powered off), the watch link up
 #   sim.sh watch off|on     shut the watch Simulator down; boot it and launch the watch app
@@ -37,7 +38,8 @@
 # rig runs at a time, as they share the simulators' sockets and ports), CONNECT_DELAY=<duration> (at `start`: how long each Bluetooth connect
 # takes, as over a radio; 1500ms by default, 0 for at once), DEXCOM_APP=1 (at `start`:
 # the simulated G7 also plays the Dexcom app, for a build whose G7 code does not authenticate itself
-# and rides the Dexcom app's link, as stock G7SensorKit does).
+# and rides the Dexcom app's link, as stock G7SensorKit does), SIMLINK_LIVE=1 (at `launch`: SimLink, not
+# the paired Simulators, carries the live phone–watch messages; see README).
 set -eu
 
 here=$(cd "$(dirname "$0")" && pwd)
@@ -195,7 +197,7 @@ launch() {
 	[ "$1" = phone ] && keep_phone_log
 	scale=${TIME_SCALE:-$(cat "$run/time-scale" 2>/dev/null || echo 1)}
 	SIMCTL_CHILD_DYLD_INSERT_LIBRARIES=$lib SIMCTL_CHILD_SIMLINK_FILE=$LINK SIMCTL_CHILD_SIMLINK_QUEUE=$SIMLINK_QUEUE \
-		SIMCTL_CHILD_SPORTMODE_TIME_SCALE=$scale xcrun simctl launch "$dev" "$id"
+		SIMCTL_CHILD_SIMLINK_LIVE=${SIMLINK_LIVE:-} SIMCTL_CHILD_SPORTMODE_TIME_SCALE=$scale xcrun simctl launch "$dev" "$id"
 }
 
 # A phone log that starts again at each launch (a build that keeps only the latest) is kept
@@ -233,6 +235,7 @@ power() { # app on(0|1)
 link() {
 	mkdir -p "$run"
 	if [ -e "$run/phone-away" ] || [ -e "$run/watch-off" ] || [ -e "$run/link-down" ]; then echo down >"$LINK"
+	elif [ -e "$run/link-wedge" ]; then echo wedge >"$LINK"
 	elif [ -s "$run/link-slow" ]; then echo "slow $(cat "$run/link-slow")" >"$LINK"
 	else rm -f "$LINK"; fi
 }
@@ -244,7 +247,11 @@ linkcmd() {
 	normal) rm -f "$run/link-slow"; link; echo "link: live messages on time" ;;
 	down) mkdir -p "$run"; touch "$run/link-down"; link; echo "link: down (phone and watch each still in reach of the pod and sensor)" ;;
 	up) rm -f "$run/link-down"; link; echo "link: up" ;;
-	*) echo "link slow <s>|normal|down|up" >&2; exit 2 ;;
+	# The field's one-way wedge: still reachable, but each live message is lost and its sender
+	# hears a timeout. Queued transfers still flow.
+	wedge) mkdir -p "$run"; touch "$run/link-wedge"; link; echo "link: wedged (reachable, live messages lost)" ;;
+	unwedge) rm -f "$run/link-wedge"; link; echo "link: live messages delivered again" ;;
+	*) echo "link slow <s>|normal|down|up|wedge|unwedge" >&2; exit 2 ;;
 	esac
 }
 

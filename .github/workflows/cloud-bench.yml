@@ -18,6 +18,9 @@ on:
       time_scale:
         description: TIME_SCALE for the run
         default: "5"
+      simlink_live:
+        description: "1: SimLink carries the live phone–watch messages (README); empty: the Simulators do"
+        default: "1"
   # Called from a LoopWorkspace workflow, to test the commit that was pushed there.
   workflow_call:
     inputs:
@@ -35,6 +38,9 @@ on:
         description: sportmode-sim branch or commit that runs it
         type: string
         default: main
+      simlink_live:
+        type: string
+        default: "1"
 
 concurrency:
   group: cloud-bench-${{ inputs.workspace_ref || github.ref }}
@@ -44,6 +50,9 @@ env:
   WORKSPACE_BRANCH: ${{ inputs.workspace_ref || inputs.workspace_branch || 'SportMode-bench' }}
   TESTS: ${{ inputs.tests || 'all' }}
   TIME_SCALE: ${{ inputs.time_scale || '5' }}
+  # On a runner the paired Simulators can take minutes to deliver a live message while both read
+  # reachable, far past the loan protocol's 10 and 30 s windows: SimLink carries them instead.
+  SIMLINK_LIVE: ${{ inputs.simlink_live == null && '1' || inputs.simlink_live }}
   WORKSPACE: ${{ github.workspace }}/../LoopWorkspace
   # Unsigned machines: every target signed ad hoc, with one team so the bundle ids agree.
   APPS_FLAGS: CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY=- PROVISIONING_PROFILE_SPECIFIER= DEVELOPMENT_TEAM=CI00000000

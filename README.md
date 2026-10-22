@@ -147,6 +147,10 @@ launch-order bug that a device rarely meets.
   background life are not reproduced. The G7 simulator's suspender would do it, one per app.
 - The paired Simulators' reachability is not a device's; `sim.sh` and SimLink correct the known
   differences (a shut-down watch reads reachable; a live message to a watch app not yet running is lost).
+  With `SIMLINK_LIVE=1` SimLink carries the live messages as well: on a small machine (a GitHub
+  runner) the paired Simulators can take minutes to deliver one while reachable reads YES. The rig
+  then no longer exercises the Simulators' own live channel, only SimLink's model of a device's
+  (refused payloads, a message nobody takes failing to its sender after 15 s, reply timeouts).
 - The pod simulator does not filter scans by service.
 
 A full pass of the scripted tests takes about 30 minutes at scale 5, 50 at real time.
