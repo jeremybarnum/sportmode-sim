@@ -119,7 +119,13 @@ tap_switch() { # identifier
 	"$UI" phone tapxy "$(awk -v x="$1" -v w="$3" 'BEGIN { print x + w - 30 }')" "$(awk -v y="$2" -v h="$4" 'BEGIN { print y + h / 2 }')" >/dev/null || fail "could not tap $1"
 }
 
-"$UI" ensure phone >/dev/null || fail "no phone driver"
+# A fresh runner's first driver sometimes never attaches where a second one attaches in a minute.
+for i in 1 2 3; do
+	"$UI" ensure phone >/dev/null 2>&1 && break
+	say "the phone driver did not attach (try $i); starting another"
+	"$UI" stop phone >/dev/null 2>&1
+	[ $i = 3 ] && fail "no phone driver"
+done
 
 say "Welcome: hold the logo to skip setup"
 "$UI" phone wait 90 loopLogo >/dev/null 2>&1 || fail "no Welcome screen"
