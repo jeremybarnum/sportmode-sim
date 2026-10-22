@@ -63,7 +63,8 @@ env:
 jobs:
   bench:
     if: ${{ !contains(github.event.head_commit.message, '[probe]') && !contains(github.event.head_commit.message, '[pairdiag]') }}
-    runs-on: macos-26
+    # A commit saying [scaleway] runs on our own Mac (a self-hosted runner labelled scaleway).
+    runs-on: ${{ contains(github.event.head_commit.message, '[scaleway]') && fromJSON('["self-hosted", "scaleway"]') || 'macos-26' }}
     timeout-minutes: 240
     steps:
       # The harness itself, also when another repository calls this workflow.
@@ -80,8 +81,9 @@ jobs:
       - name: Xcode and xcodegen
         run: |
           # The newest Xcode installed, for the newest Simulator runtimes (sim.sh sims takes those).
-          x=$(ls -d /Applications/Xcode_[0-9]*.app | sort -V | tail -1)
-          sudo xcode-select --switch "$x/Contents/Developer"
+          # GitHub's images keep several, named by version; a Mac of our own has the one it was given.
+          x=$(ls -d /Applications/Xcode_[0-9]*.app 2>/dev/null | sort -V | tail -1)
+          [ -z "$x" ] || sudo xcode-select --switch "$x/Contents/Developer"
           xcodebuild -version
           command -v xcodegen >/dev/null || brew install xcodegen
           go version
@@ -90,7 +92,8 @@ jobs:
 
       - name: LoopWorkspace with the Simulator aids
         run: |
-          git clone --quiet https://github.com/jeremybarnum/LoopWorkspace "$WORKSPACE"
+          # A runner of our own keeps the checkout between runs.
+          [ -d "$WORKSPACE/.git" ] || git clone --quiet https://github.com/jeremybarnum/LoopWorkspace "$WORKSPACE"
           ./tree.sh "$WORKSPACE_BRANCH"   # WORKSPACE names the checkout
 
       - name: Simulators, mux and libraries
@@ -232,8 +235,9 @@ jobs:
       - uses: actions/checkout@v5
       - name: Xcode
         run: |
-          x=$(ls -d /Applications/Xcode_[0-9]*.app | sort -V | tail -1)
-          sudo xcode-select --switch "$x/Contents/Developer"
+          # GitHub's images keep several, named by version; a Mac of our own has the one it was given.
+          x=$(ls -d /Applications/Xcode_[0-9]*.app 2>/dev/null | sort -V | tail -1)
+          [ -z "$x" ] || sudo xcode-select --switch "$x/Contents/Developer"
           xcodebuild -version
       - name: LoopWorkspace with the Simulator aids
         run: |
@@ -269,7 +273,8 @@ jobs:
       - uses: actions/checkout@v5
       - name: Xcode
         run: |
-          x=$(ls -d /Applications/Xcode_[0-9]*.app | sort -V | tail -1)
-          sudo xcode-select --switch "$x/Contents/Developer"
+          # GitHub's images keep several, named by version; a Mac of our own has the one it was given.
+          x=$(ls -d /Applications/Xcode_[0-9]*.app 2>/dev/null | sort -V | tail -1)
+          [ -z "$x" ] || sudo xcode-select --switch "$x/Contents/Developer"
       - name: Pair diagnosis
         run: ./cloud/pairdiag.sh
