@@ -66,8 +66,24 @@ jobs:
       - name: Simulators, mux and libraries
         run: ./sim.sh build
 
+      # On a runner a pair whose two Simulators boot together stays "(active, disconnected)", so the
+      # phone never sees the watch app (cloud/pairdiag.sh). Booted in order, phone fully first,
+      # it connects.
       - name: Paired phone and watch Simulators
-        run: ./sim.sh sims
+        timeout-minutes: 20
+        run: |
+          ./sim.sh sims
+          . ./.sims
+          xcrun simctl shutdown "$SIMS_WATCH" 2>/dev/null || true
+          xcrun simctl bootstatus "$SIMS_PHONE" -b >/dev/null
+          xcrun simctl boot "$SIMS_WATCH"; xcrun simctl bootstatus "$SIMS_WATCH" -b >/dev/null
+          for i in $(seq 1 40); do
+            s=$(xcrun simctl list pairs | grep -B1 "$SIMS_WATCH" | head -1)
+            echo "$(date +%T) $s"
+            case "$s" in *"(active, connected)"*) exit 0 ;; esac
+            sleep 15
+          done
+          echo "the pair did not connect"; exit 1
 
       # The apps take 40 minutes to build here: kept per workspace commit, aids and harness.
       - name: Key for the built apps
