@@ -180,8 +180,12 @@ tap "Cannula inserted successfully. Continue." || fail "could not continue after
 drain 300 "Confirm" "Yes" "Continue" "Finish Setup"
 
 say "Closed Loop on"
-"$UI" phone wait 30 settingsViewClosedLoopToggle >/dev/null 2>&1 || tap Settings || fail "no Settings"
-"$UI" phone wait 30 settingsViewClosedLoopToggle >/dev/null 2>&1 || fail "no Closed Loop switch in Settings"
+# A tap right after a screen closes is often swallowed (README): tap Settings until it opens.
+for i in 1 2 3 4; do
+	"$UI" phone wait 20 settingsViewClosedLoopToggle >/dev/null 2>&1 && break
+	[ $i = 4 ] && fail "no Closed Loop switch in Settings"
+	tap Settings || true
+done
 tap_switch settingsViewClosedLoopToggle
 sleep 2
 screen closed-loop 30
