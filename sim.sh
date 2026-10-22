@@ -115,7 +115,9 @@ sims() {
 	w=$(xcrun simctl create "Sport Mode Watch${RIG:+ ($RIG)}" "$wt" "$wr")
 	xcrun simctl pair "$w" "$p" >/dev/null
 	printf 'SIMS_PHONE=%s\nSIMS_WATCH=%s\n' "$p" "$w" >"$sims_file"
-	xcrun simctl boot "$p"; xcrun simctl boot "$w"
+	# The phone fully up before the watch: booted together on a slow machine, the pair can stay
+	# "(active, disconnected)", and the phone never sees the watch app.
+	xcrun simctl boot "$p"; xcrun simctl bootstatus "$p" -b >/dev/null; xcrun simctl boot "$w"
 	echo "phone $p, watch $w (saved in $(basename "$sims_file"))"
 }
 
