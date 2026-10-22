@@ -347,6 +347,7 @@ reset() {
 	say "Reset: everything in range, both apps up, no loan"
 	"$SIM" phone back >/dev/null 2>&1 || true
 	"$SIM" pod back >/dev/null 2>&1 || true
+	[ -e "$RUN/watch-away" ] && { "$SIM" watch back >/dev/null 2>&1 || true; }
 	"$SIM" link up >/dev/null 2>&1 || true
 	"$SIM" link normal >/dev/null 2>&1 || true
 	[ -e "$RUN/watch-off" ] && "$SIM" watch on >/dev/null 2>&1

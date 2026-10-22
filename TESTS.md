@@ -95,3 +95,11 @@ message on screen, the loan continues. `phone back`, End again: a clean hand-bac
 at its first reading the phone books the insulin and keeps the pod. `watch on`. Pass: phone `no answer from the watch
 … keeps the pod`, then `a revived watch's claim to a loan started before this phone took over … revoke`; watch
 `RESUMED`, "Checking with your iPhone…", `REVOKED`, no `dosemath` between.
+
+**T23.** A watch bolus that reaches the phone after it has handed the pod over. (1) `watch away` (the watch's radio
+out of range, its link to the phone up); Start on the watch; after the phone's `GRANT`, a 1 U bolus on the watch,
+which goes to the phone; `watch back`. (2) `link slow 8`; Start, then at once a 1 U bolus on the watch, which arrives
+after the grant. Pass, for each: the phone's system log `Refusing watch bolus while the pod is on loan`, a phone
+notification "Bolus Not Delivered", the pod's total not moved by it, no `MANUAL BOLUS` on the phone, the loan
+`ACTIVE` and its End's check clean. The watch's bolus is a live message, and the phone drops one over 30 s old, so a
+bolus queued while the phone was away cannot reach it later.

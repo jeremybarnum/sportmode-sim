@@ -73,6 +73,7 @@ for the watch to read the sensor. A bolus on the phone asks the Simulator's pass
 |---|---|
 | Phone out of reach of everything (Bluetooth and Wi-Fi off) | `phone away`, `phone back` |
 | Pod out of reach of both | `pod away`, `pod back` |
+| Pod and sensor out of the watch's reach, the phone still linked | `watch away`, `watch back` |
 | Watch shut down | `watch off`, `watch on` (boots, opens the app, then the link comes up) |
 | An app force-quit | `quit phone`, `quit watch`; `launch` to reopen |
 | What is out of range | `range` |
@@ -105,7 +106,7 @@ both apps up, no loan), does the taps and the situations, waits on the apps' log
 test's pass lines, and ends in PASS or FAIL. `tests/run.sh` runs all of them in a row (or the ones
 named) and keeps each one's output under `build/results/`.
 
-Scripted: T1, T3–T11, T13, T16–T19, T22. T9's six hours are simulated by aging the watch's saved last pod
+Scripted: T1, T3–T11, T13, T16–T19, T22, T23. T9's six hours are simulated by aging the watch's saved last pod
 reading while it is off. Not scripted: T2 (no way to cause it), T12 (opportunistic), T14 (a tap
 within a second of the watch waking), T15 (a clarifying test for the hardware emulator).
 

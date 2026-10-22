@@ -18,6 +18,7 @@
 # The physical situations of the bench tests:
 #   sim.sh phone away|back  the phone's radios off and on: no watch, no pod, no sensor
 #   sim.sh pod away|back    the pod out of reach of both, and back
+#   sim.sh watch away|back  the pod and sensor out of the watch's reach (the phone still linked)
 #   sim.sh pod slow <s>     the pod's next state-changing command waits <s> before it is accepted
 #   sim.sh link slow <s>|normal  each live phone–watch message arrives <s> late, or on time again
 #   sim.sh link down|up     the phone–watch link alone cut, each still in reach of the pod and sensor
@@ -132,7 +133,12 @@ start() {
 	mkdir -p "$run"
 	# A faster clock: the sensor reads every 300/N s, and the apps (launched with the same N)
 	# divide their own waits by it. Kept with the run so launch agrees with start.
-	scale=${TIME_SCALE:-1}; echo "$scale" >"$run/time-scale"
+	# A sensor's reading interval is fixed for its life: at another scale a saved sensor serves no new
+	# readings, so a scale change starts a new one.
+	scale=${TIME_SCALE:-1}; was=$(cat "$run/time-scale" 2>/dev/null || true); echo "$scale" >"$run/time-scale"
+	if [ -n "$was" ] && [ "$was" != "$scale" ] && [ -z "$fresh" ] && ! started g7-sim; then
+		echo "time scale $was → $scale: a new sensor"; fresh=-fresh
+	fi
 	interval=; [ "$scale" -gt 1 ] 2>/dev/null && interval="-interval $((300 / scale))s"
 	started pod-sim || { nohup "$out/pod-sim" -transport impossible -socket $POD_SOCK -api $POD_API \
 		-state "$run/pod-state.toml" ${podfresh:+-fresh} >"$run/pod.log" 2>&1 & }
@@ -279,12 +285,14 @@ watch() {
 		[ -f /tmp/sportmode-ui/watch.pid ] && kill "$(cat /tmp/sportmode-ui/watch.pid)" 2>/dev/null || true ;;
 	# The link comes up with the watch app, not with the watch: the paired Simulators accept a live
 	# message for an app not yet running and lose it, where a device would fail it to the queue.
+	away) mkdir -p "$run"; touch "$run/watch-away"; range app "$WATCH_ID" 0 ;;
+	back) rm -f "$run/watch-away"; range app "$WATCH_ID" 1 ;;
 	on) xcrun simctl boot "$WATCH" 2>/dev/null || true
 		xcrun simctl bootstatus "$WATCH" -b >/dev/null; launch watch; rm -f "$run/watch-off"; link
 		# After the watch Simulator reboots, the phone app's queued transfers from the watch stop
 		# arriving until the phone app is restarted (a Simulator quirk): the next reset does it.
 		touch "$run/watch-rebooted" ;;
-	*) echo "watch off|on" >&2; exit 2 ;;
+	*) echo "watch off|on|away|back" >&2; exit 2 ;;
 	esac
 }
 
@@ -330,6 +338,7 @@ launch) launch "${2:-}" ;;
 log) logof "${2:-}" "${3:-}" ;;
 applog) applog "${2:-}" ;;
 bundle) case "${2:-}" in phone) echo "$PHONE_ID" ;; watch) echo "$WATCH_ID" ;; *) exit 2 ;; esac ;;
+podapi) echo "$POD_API" ;;
 quit) quit "${2:-}" ;;
 since)
 	# A time of day more than an hour after now is yesterday's: a window that crosses midnight keeps
