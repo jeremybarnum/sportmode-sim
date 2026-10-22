@@ -65,11 +65,29 @@ jobs:
       - name: Paired phone and watch Simulators
         run: ./sim.sh sims
 
+      # The apps take 40 minutes to build here: kept per workspace commit, aids and harness.
+      - name: Key for the built apps
+        id: key
+        run: echo "apps=apps-$(git -C "$WORKSPACE" rev-parse FETCH_HEAD)-${{ hashFiles('aids/**', 'sim.sh') }}" >>"$GITHUB_OUTPUT"
+
+      - uses: actions/cache/restore@v4
+        id: apps
+        with:
+          path: build/dd/Build/Products
+          key: ${{ steps.key.outputs.apps }}
+
       - name: Loop's phone and watch apps
         timeout-minutes: 90
         run: |
-          ./sim.sh apps || { grep -E " error:|BUILD FAILED" build/run/apps-build.log | head -40; exit 1; }
+          if [ "${{ steps.apps.outputs.cache-hit }}" = true ]; then echo "apps from the cache"
+          else ./sim.sh apps || { grep -E " error:|BUILD FAILED" build/run/apps-build.log | head -40; exit 1; }; fi
           ./sim.sh install
+
+      - uses: actions/cache/save@v4
+        if: steps.apps.outputs.cache-hit != 'true'
+        with:
+          path: build/dd/Build/Products
+          key: ${{ steps.key.outputs.apps }}
 
       - name: Tap drivers
         run: ./ui.sh build

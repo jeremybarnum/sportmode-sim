@@ -69,7 +69,10 @@ advance() { # goal seconds candidate...
 	local goal=$1 end=$(($(date +%s) + $2))
 	shift 2
 	while :; do
-		shows "$goal" && { say "at $goal"; return 0; }
+		case "$goal" in
+		~*) "$UI" phone tree >/dev/null 2>&1; shows_like "${goal#\~}" && { say "at $goal"; return 0; } ;;
+		*) shows "$goal" && { say "at $goal"; return 0; } ;;
+		esac
 		[ "$(date +%s)" -ge "$end" ] && fail "did not reach \"$goal\""
 		allow_alerts
 		tap_candidate "$@" || sleep 2
@@ -125,7 +128,8 @@ drain 180 "Turn On All" "Allow" "Close" "OK" "Not Now"
 "$UI" phone wait 30 glucoseHUDView >/dev/null 2>&1 || fail "no status screen after the skip"
 
 say "CGM: Dexcom G7, code 4321"
-advance "Dexcom G7" 60 "settingsViewCGM" "Add CGM" "Settings" "~ettings"
+# The status screen's CGM tile reads "Tap to add" and opens the picker (Settings' row is off screen).
+advance "Dexcom G7" 60 glucoseHUDView
 tap "Dexcom G7" || fail "could not pick Dexcom G7"
 advance "Enter Code by Hand" 120 "Pair Sensor" "Sensor Is On, Continue" "Continue" "Allow"
 tap "Enter Code by Hand" || fail "no Enter Code by Hand"
@@ -136,15 +140,18 @@ say "typed 4321"
 drain 240 "Continue" "Not Now" "Close"
 
 say "Pump: Omnipod DASH, paired, primed, inserted"
-advance "Omnipod DASH" 60 "settingsViewInsulinPump" "Add Pump" "~Omnipod"
+advance "~Omnipod" 60 pumpHUDView
+"$UI" phone "tap~" Omnipod >/dev/null || fail "could not pick Omnipod"
+say "tapped ~Omnipod"
 advance "Pair Pod" 180 "Omnipod DASH" "Confirm Pod Type" "~Novolog" "Next" "Continue" "Allow"
 advance "Slide to Insert Cannula" 300 "Pair Pod" "~Pair " "Continue" "Allow"
 "$UI" phone slide "Slide to Insert Cannula" >/dev/null || fail "could not slide to insert"
 say "slid to insert the cannula"
 drain 300 "Yes" "Continue" "Finish Setup"
-"$UI" phone wait 30 settingsViewClosedLoopToggle >/dev/null 2>&1 || fail "not back in Settings after the pod"
 
 say "Closed Loop on"
+"$UI" phone wait 30 settingsViewClosedLoopToggle >/dev/null 2>&1 || tap Settings || fail "no Settings"
+"$UI" phone wait 30 settingsViewClosedLoopToggle >/dev/null 2>&1 || fail "no Closed Loop switch in Settings"
 tap_switch settingsViewClosedLoopToggle
 sleep 2
 screen closed-loop 30
