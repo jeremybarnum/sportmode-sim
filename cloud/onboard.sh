@@ -143,7 +143,7 @@ say "Pump: Omnipod DASH, paired, primed, inserted"
 advance "~Omnipod" 60 pumpHUDView
 "$UI" phone "tap~" Omnipod >/dev/null || fail "could not pick Omnipod"
 say "tapped ~Omnipod"
-advance "Pair Pod" 180 "Omnipod DASH" "Confirm Pod Type" "~Novolog" "Next" "Continue" "Allow"
+advance "Pair Pod" 180 "Omnipod DASH" "Confirm Pod Type" "~Novolog, A rapid-acting insulin, Unselected" "Next" "Continue" "Allow"
 advance "Slide to Insert Cannula" 300 "Pair Pod" "~Pair " "Continue" "Allow"
 "$UI" phone slide "Slide to Insert Cannula" >/dev/null || fail "could not slide to insert"
 say "slid to insert the cannula"
