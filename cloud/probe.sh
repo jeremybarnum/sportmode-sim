@@ -12,11 +12,10 @@ PID=$(defaults read "$PHONE_APP/Info.plist" CFBundleIdentifier)
 WID=$(defaults read "$WATCH_APP/Info.plist" CFBundleIdentifier)
 say() { printf '%s  %s\n' "$(date +%T)" "$*"; }
 
-pr=$(xcrun simctl list runtimes -j | python3 -c "import json,sys; v=[r for r in json.load(sys.stdin)['runtimes'] if r['platform']=='iOS' and r.get('isAvailable',True)]; print(v[-1]['identifier'])")
-wr=$(xcrun simctl list runtimes -j | python3 -c "import json,sys; v=[r for r in json.load(sys.stdin)['runtimes'] if r['platform']=='watchOS' and r.get('isAvailable',True)]; print(v[-1]['identifier'])")
-pt=$(xcrun simctl list runtimes -j | python3 -c "import json,sys; r=[r for r in json.load(sys.stdin)['runtimes'] if r['identifier']=='$pr'][0]; print([t['identifier'] for t in r['supportedDeviceTypes'] if 'iPhone' in t['identifier']][0])")
-wt=$(xcrun simctl list runtimes -j | python3 -c "import json,sys; r=[r for r in json.load(sys.stdin)['runtimes'] if r['identifier']=='$wr'][0]; print([t['identifier'] for t in r['supportedDeviceTypes'] if 'Apple-Watch' in t['identifier']][0])")
-say "phone app $PID, watch app $WID; runtimes $pr $wr"
+# PROBE_VERSIONS: the runtime versions to try ("26.4 26.2"); strategy A on each.
+rt() { xcrun simctl list runtimes -j | python3 -c "import json,sys; v=[r for r in json.load(sys.stdin)['runtimes'] if r['platform']=='$1' and r['version'].startswith('$2')]; print(v[-1]['identifier'] if v else '')"; }
+dt() { xcrun simctl list runtimes -j | python3 -c "import json,sys; r=[r for r in json.load(sys.stdin)['runtimes'] if r['identifier']=='$1'][0]; print([t['identifier'] for t in r['supportedDeviceTypes'] if '$2' in t['identifier']][0])"; }
+say "phone app $PID, watch app $WID"
 say "phone app embeds: $(ls "$PHONE_APP/Watch" 2>/dev/null | tr '\n' ' ')"
 plutil -p "$WATCH_APP/Info.plist" | grep -E "WKCompanion|WKApplication|WKWatchOnly|CFBundleIdentifier"
 
@@ -54,31 +53,14 @@ check() { # strategy
 
 done_pair() { xcrun simctl shutdown "$P" "$W" 2>/dev/null; xcrun simctl delete "$P" "$W" 2>/dev/null; }
 
-say "A: phone app, then watch app, watch app launched, phone launched twice"
-new_pair A
-xcrun simctl install "$P" "$PHONE_APP"; xcrun simctl install "$W" "$WATCH_APP"
-xcrun simctl launch "$W" "$WID" >/dev/null; sleep 20
-check A1; sleep 20; check A2
-done_pair
-
-say "B: watch app first, then phone app"
-new_pair B
-xcrun simctl install "$W" "$WATCH_APP"; xcrun simctl install "$P" "$PHONE_APP"
-xcrun simctl launch "$W" "$WID" >/dev/null; sleep 20
-check B
-done_pair
-
-say "C: phone app only (does the pair install its embedded watch app?)"
-new_pair C
-xcrun simctl install "$P" "$PHONE_APP"; sleep 60
-check C
-done_pair
-
-say "D: both installed, then both Simulators rebooted"
-new_pair D
-xcrun simctl install "$P" "$PHONE_APP"; xcrun simctl install "$W" "$WATCH_APP"
-xcrun simctl shutdown "$P" "$W"; xcrun simctl boot "$P"; xcrun simctl boot "$W"
-xcrun simctl bootstatus "$P" -b >/dev/null; xcrun simctl bootstatus "$W" -b >/dev/null
-xcrun simctl launch "$W" "$WID" >/dev/null; sleep 20
-check D
-done_pair
+for v in ${PROBE_VERSIONS:-26.4 26.2}; do
+	pr=$(rt iOS "$v"); wr=$(rt watchOS "$v")
+	[ -n "$pr" ] && [ -n "$wr" ] || { say "no $v runtimes"; continue; }
+	pt=$(dt "$pr" iPhone); wt=$(dt "$wr" Apple-Watch)
+	say "$v: phone app, then watch app, watch app launched, phone launched twice ($pr, $wr)"
+	new_pair "$v"
+	xcrun simctl install "$P" "$PHONE_APP"; xcrun simctl install "$W" "$WATCH_APP"
+	xcrun simctl launch "$W" "$WID" >/dev/null; sleep 20
+	check "$v-1"; sleep 20; check "$v-2"
+	done_pair
+done
