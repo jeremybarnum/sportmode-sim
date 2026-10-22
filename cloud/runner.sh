@@ -10,7 +10,8 @@ token=${1:?usage: runner.sh <registration token>}
 export PATH="$HOME/xcodegen/bin:$PATH"
 command -v xcodegen >/dev/null || { echo "no xcodegen: run cloud/setup-mac.sh first"; exit 1; }
 arch=$(uname -m | sed 's/x86_64/x64/')
-v=$(curl -fsSL https://api.github.com/repos/actions/runner/releases/latest | sed -n 's/.*"tag_name": *"v\([^"]*\)".*/\1/p')
+# The latest release, from where its page redirects (no API call, so no rate limit).
+v=$(curl -fsSLI -o /dev/null -w '%{url_effective}' https://github.com/actions/runner/releases/latest | sed 's#.*/tag/v##')
 mkdir -p ~/actions-runner && cd ~/actions-runner
 if [ ! -x ./config.sh ]; then
 	echo "downloading runner $v ($arch)"
