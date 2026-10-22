@@ -36,6 +36,7 @@ env:
 
 jobs:
   bench:
+    if: ${{ !contains(github.event.head_commit.message, '[probe]') }}
     runs-on: macos-26
     timeout-minutes: 240
     steps:
@@ -173,3 +174,41 @@ jobs:
             build/ui-*.log
           if-no-files-found: ignore
           retention-days: 7
+
+  # A commit whose message says [probe] runs cloud/probe.sh instead of the bench: install orders
+  # tried on fresh paired Simulators with the cached apps, to see which lets the phone see the
+  # watch app. Same workflow and branch as the bench, so it shares the apps' cache.
+  probe:
+    if: ${{ contains(github.event.head_commit.message, '[probe]') }}
+    runs-on: macos-26
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v5
+      - name: Xcode
+        run: |
+          x=$(ls -d /Applications/Xcode_[0-9]*.app | sort -V | tail -1)
+          sudo xcode-select --switch "$x/Contents/Developer"
+          xcodebuild -version
+      - name: LoopWorkspace with the Simulator aids
+        run: |
+          git clone --quiet https://github.com/jeremybarnum/LoopWorkspace "$WORKSPACE"
+          ./tree.sh "$WORKSPACE_BRANCH"
+      - name: Key for the built apps
+        id: key
+        run: |
+          ws=$(git -C "$WORKSPACE" rev-parse FETCH_HEAD)
+          echo "ws=apps-$ws-" >>"$GITHUB_OUTPUT"
+          echo "apps=apps-$ws-$(cat aids/*/* sim.sh | shasum -a 256 | cut -c1-16)" >>"$GITHUB_OUTPUT"
+      - uses: actions/cache/restore@v4
+        with:
+          path: build/dd/Build/Products
+          key: ${{ steps.key.outputs.apps }}
+          restore-keys: ${{ steps.key.outputs.ws }}
+      - name: Apps (built only if the cache has none)
+        timeout-minutes: 90
+        run: |
+          [ -d build/dd/Build/Products/Debug-iphonesimulator/Loop.app ] && { echo "apps from the cache"; exit 0; }
+          ./sim.sh sims && ./sim.sh apps
+      - name: Probe
+        timeout-minutes: 90
+        run: ./cloud/probe.sh
