@@ -150,7 +150,10 @@ launch-order bug that a device rarely meets.
   With `SIMLINK_LIVE=1` SimLink carries the live messages as well: on a small machine (a GitHub
   runner) the paired Simulators can take minutes to deliver one while reachable reads YES. The rig
   then no longer exercises the Simulators' own live channel, only SimLink's model of a device's
-  (refused payloads, a message nobody takes failing to its sender after 15 s, reply timeouts).
+  (refused payloads, a message nobody takes failing to its sender after 15 s, reply timeouts, and
+  reachability: the watch reads the phone reachable while the link is up, the phone the watch while
+  the watch app runs). `sim.sh link wedge` is the field's one-way wedge: reachable, each live
+  message lost. `TIME_SLACK=<s>` adds to every timed check's limit, for a slow machine.
 - The pod simulator does not filter scans by service.
 
 A full pass of the scripted tests takes about 30 minutes at scale 5, 50 at real time.

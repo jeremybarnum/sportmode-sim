@@ -31,8 +31,11 @@
 // does not take within the timeout (its app not running, not yet activated, or
 // without the delegate method the message needs) fails to its sender, payloads
 // must be property lists of at most 65,536 bytes, and a reply that does not come
-// in 60 s times out. Reachability, activation and application context stay with
-// the system.
+// in 60 s times out. Reachability is SimLink's too, as on a device: the watch
+// reads the phone reachable while the link is up (iOS would wake the phone app),
+// the phone reads the watch reachable while the watch app runs (it touches a
+// heartbeat file each second). Activation and application context stay with the
+// system.
 //
 // Control file: $SIMLINK_FILE, default /tmp/sportmode-sim-link. Queues:
 // $SIMLINK_QUEUE/to-phone and to-watch, default /tmp/sportmode-sim-queue; live
@@ -42,6 +45,9 @@
 #import <WatchConnectivity/WatchConnectivity.h>
 #import <objc/runtime.h>
 #import <objc/message.h>
+#import <sys/stat.h>
+#import <sys/time.h>
+#import <fcntl.h>
 
 static NSString *controlPath;
 static NSString *outbox, *inbox, *filesDir;   // the queued channels' folders
@@ -215,8 +221,11 @@ static void hookDelegate(id delegate) {
 
 static IMP origIsReachable, origSendMessage, origSendMessageData, origSetDelegate, origReceivedContext;
 
+static BOOL liveReachable(void);
+
 static BOOL sl_isReachable(WCSession *self, SEL _cmd) {
     if (linkDown) return NO;
+    if (liveCarried) return liveReachable();
     return ((BOOL (*)(id, SEL))origIsReachable)(self, _cmd);
 }
 
@@ -249,6 +258,10 @@ static void sl_sendMessage(WCSession *self, SEL _cmd, NSDictionary *message, id 
         return;
     }
     if (wedged) { loseToWedge(errorHandler); return; }
+    if (liveCarried && !liveReachable()) {
+        if (errorHandler) dispatch_async(dispatch_get_global_queue(QOS_CLASS_UTILITY, 0), ^{ errorHandler(notReachable()); });
+        return;
+    }
     if (liveCarried) { sendLive(@"message", message, replyHandler, errorHandler); return; }
     ((void (*)(id, SEL, id, id, id))origSendMessage)(self, _cmd, message, replyHandler, errorHandler);
 }
@@ -259,6 +272,10 @@ static void sl_sendMessageData(WCSession *self, SEL _cmd, NSData *data, id reply
         return;
     }
     if (wedged) { loseToWedge(errorHandler); return; }
+    if (liveCarried && !liveReachable()) {
+        if (errorHandler) dispatch_async(dispatch_get_global_queue(QOS_CLASS_UTILITY, 0), ^{ errorHandler(notReachable()); });
+        return;
+    }
     if (liveCarried) { sendLive(@"data", data, replyHandler, errorHandler); return; }
     ((void (*)(id, SEL, id, id, id))origSendMessageData)(self, _cmd, data, replyHandler, errorHandler);
 }
@@ -361,6 +378,7 @@ static void drainInbox(void) {
 #pragma mark - The live messages (SIMLINK_LIVE=1)
 
 static NSString *liveOutbox, *liveInbox;
+static NSString *watchAlive;                // touched each second while the watch app can take messages
 static dispatch_queue_t liveQueue;          // the sends' bookkeeping and the deliveries, in order
 static NSMutableDictionary<NSString *, NSDictionary *> *pending;   // id -> the sender's handlers; on liveQueue
 static const NSUInteger maxLivePayload = 65536;
@@ -417,13 +435,53 @@ static void sendLive(NSString *kind, id payload, id replyHandler, void (^errorHa
     });
 }
 
+static BOOL sessionReady(void) {
+    WCSession *session = WCSession.defaultSession;
+    return session.delegate && session.activationState == WCSessionActivationStateActivated;
+}
+
+static BOOL liveReachable(void) {
+    if (linkDown) return NO;
+#if TARGET_OS_WATCH
+    return YES;
+#else
+    struct stat st;
+    if (stat(watchAlive.fileSystemRepresentation, &st) != 0) return NO;
+    return NSDate.date.timeIntervalSince1970 - (double)st.st_mtimespec.tv_sec < 3;
+#endif
+}
+
+static void drainLive(void);
+
+// Each tick: the watch app's heartbeat, and the delegate told when reachability changes. On liveQueue.
+static void liveTick(void) {
+    static int wasReachable = -1;
+#if TARGET_OS_WATCH
+    static unsigned ticks;
+    if (ticks++ % 20 == 0 && sessionReady()) {
+        int fd = open(watchAlive.fileSystemRepresentation, O_CREAT | O_WRONLY, 0644);
+        if (fd >= 0) close(fd);
+        utimes(watchAlive.fileSystemRepresentation, NULL);
+    }
+#endif
+    BOOL reachable = liveReachable();
+    if (wasReachable != -1 && reachable != wasReachable) {
+        NSLog(@"SimLink: counterpart %@", reachable ? @"reachable" : @"not reachable");
+        WCSession *session = WCSession.defaultSession;
+        id<WCSessionDelegate> delegate = session.delegate;
+        if ([delegate respondsToSelector:@selector(sessionReachabilityDidChange:)]) [delegate sessionReachabilityDidChange:session];
+    }
+    wasReachable = reachable;
+    drainLive();
+}
+
 // What came in, in order: answers to this app's messages, and messages for it, taken while it can
 // take them (a delegate, an activated session). Through the delegate's hooked methods, so a message
 // meets the link as the system's would: dropped while it is down, late while it is slow. On liveQueue.
 static void drainLive(void) {
     WCSession *session = WCSession.defaultSession;
     id delegate = session.delegate;
-    BOOL ready = delegate && session.activationState == WCSessionActivationStateActivated;
+    BOOL ready = sessionReady();
     NSArray *names = [[NSFileManager.defaultManager contentsOfDirectoryAtPath:liveInbox error:nil]
                       sortedArrayUsingSelector:@selector(compare:)];
     for (NSString *name in names) {
@@ -518,6 +576,7 @@ static void SimLinkLoad(void) {
     liveOutbox = [queue stringByAppendingPathComponent:@"live-to-watch"];
     liveInbox = [queue stringByAppendingPathComponent:@"live-to-phone"];
 #endif
+    watchAlive = [queue stringByAppendingPathComponent:@"watch-alive"];
     NSDictionary *env = NSProcessInfo.processInfo.environment;
     liveCarried = [env[@"SIMLINK_LIVE"] isEqualToString:@"1"];
     liveTimeout = [env[@"SIMLINK_LIVE_TIMEOUT"] doubleValue] ?: 15;
@@ -545,7 +604,7 @@ static void SimLinkLoad(void) {
         pending = [NSMutableDictionary dictionary];
         dispatch_source_t live = dispatch_source_create(DISPATCH_SOURCE_TYPE_TIMER, 0, 0, liveQueue);
         dispatch_source_set_timer(live, dispatch_time(DISPATCH_TIME_NOW, 0), 50 * NSEC_PER_MSEC, 10 * NSEC_PER_MSEC);
-        dispatch_source_set_event_handler(live, ^{ drainLive(); });
+        dispatch_source_set_event_handler(live, ^{ liveTick(); });
         dispatch_resume(live);
         static dispatch_source_t keepLive;
         keepLive = live;

@@ -53,6 +53,9 @@ env:
   # On a runner the paired Simulators can take minutes to deliver a live message while both read
   # reachable, far past the loan protocol's 10 and 30 s windows: SimLink carries them instead.
   SIMLINK_LIVE: ${{ inputs.simlink_live == null && '1' || inputs.simlink_live }}
+  # A runner's taps and Bluetooth stand-ins are slower than a Mac's: each timed check gets 2 s more
+  # there (none on our own Mac).
+  TIME_SLACK: ${{ contains(github.event.head_commit.message, '[bench-mac]') && '0' || '2' }}
   WORKSPACE: ${{ github.workspace }}/../LoopWorkspace
   # Unsigned machines: every target signed ad hoc, with one team so the bundle ids agree.
   APPS_FLAGS: CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY=- PROVISIONING_PROFILE_SPECIFIER= DEVELOPMENT_TEAM=CI00000000
@@ -63,8 +66,8 @@ env:
 jobs:
   bench:
     if: ${{ !contains(github.event.head_commit.message, '[probe]') && !contains(github.event.head_commit.message, '[pairdiag]') }}
-    # A commit saying [scaleway] runs on our own Mac (a self-hosted runner labelled scaleway).
-    runs-on: ${{ contains(github.event.head_commit.message, '[scaleway]') && fromJSON('["self-hosted", "scaleway"]') || 'macos-26' }}
+    # A commit saying [bench-mac] runs on our own Mac (a self-hosted runner labelled bench-mac).
+    runs-on: ${{ contains(github.event.head_commit.message, '[bench-mac]') && fromJSON('["self-hosted", "bench-mac"]') || 'macos-26' }}
     timeout-minutes: 240
     steps:
       # The harness itself, also when another repository calls this workflow.

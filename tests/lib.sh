@@ -108,11 +108,12 @@ seconds_to() { # side since regex
 }
 
 # Within a limit: the first line matching regex came at most limit seconds after a time.
+# TIME_SLACK=<s> adds that much to every limit, for a slow machine (a GitHub runner).
 expect_within() { # side since regex limit what
-	local s
+	local s k=${TIME_SLACK:-0}
 	s=$(seconds_to "$1" "$2" "$3") || { fail "$5" "no $1 line /$3/"; return; }
-	if awk -v s="$s" -v l="$4" 'BEGIN { exit !(s <= l) }'; then pass "$5 (${s} s)" "$(lines "$1" "$2" "$3" | head -1)"
-	else fail "$5 (${s} s, limit $4 s)" "$(lines "$1" "$2" "$3" | head -1)"; fi
+	if awk -v s="$s" -v l="$4" -v k="$k" 'BEGIN { exit !(s <= l + k) }'; then pass "$5 (${s} s)" "$(lines "$1" "$2" "$3" | head -1)"
+	else fail "$5 (${s} s, limit $4 s$([ "$k" = 0 ] || echo " + $k s slack"))" "$(lines "$1" "$2" "$3" | head -1)"; fi
 }
 
 # An app that crashed during the test fails it: the report and its crashing frame.
