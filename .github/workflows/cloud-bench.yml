@@ -109,12 +109,25 @@ jobs:
           ./cloud/onboard.sh
 
       - name: Watch app, and the watch reading the sensor
-        timeout-minutes: 15
+        timeout-minutes: 25
         run: |
           t=$(date +%T)
           ./sim.sh launch watch
-          sleep 5
-          ./sim.sh launch phone
+          # The phone sees a watch app installed after it only at a later launch (README); on a
+          # runner one relaunch is not always enough: relaunch until its link line says so.
+          ok=
+          for i in 1 2 3 4 5; do
+            sleep 20
+            p=$(date +%T)
+            ./sim.sh launch phone >/dev/null
+            for j in $(seq 1 18); do
+              l=$(./sim.sh since phone "$p" 'appInstalled=true' 2>/dev/null | tail -1)
+              [ -n "$l" ] && { echo "phone knows the watch app (launch $i): $l"; ok=1; break 2; }
+              sleep 5
+            done
+            echo "launch $i: the phone does not see the watch app yet"
+          done
+          [ -n "$ok" ] || { ./sim.sh log phone 20; exit 1; }
           for i in $(seq 1 84); do
             l=$(./sim.sh since watch "$t" 'INGEST src=direct-G7' 2>/dev/null | tail -1)
             [ -n "$l" ] && { echo "watch reads the sensor: $l"; exit 0; }
