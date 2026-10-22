@@ -42,8 +42,10 @@ on:
         type: string
         default: "1"
 
+# One run per branch and kind: a run on our own Mac, or on Apple's own live channel, does not cancel
+# one of the other kinds.
 concurrency:
-  group: cloud-bench-${{ inputs.workspace_ref || github.ref }}
+  group: cloud-bench-${{ inputs.workspace_ref || github.ref }}${{ contains(github.event.head_commit.message, '[bench-mac]') && '-mac' || '' }}${{ contains(github.event.head_commit.message, '[apple-wc]') && '-apple-wc' || '' }}
   cancel-in-progress: true
 
 env:
@@ -52,7 +54,8 @@ env:
   TIME_SCALE: ${{ inputs.time_scale || '5' }}
   # On a runner the paired Simulators can take minutes to deliver a live message while both read
   # reachable, far past the loan protocol's 10 and 30 s windows: SimLink carries them instead.
-  SIMLINK_LIVE: ${{ inputs.simlink_live == null && '1' || inputs.simlink_live }}
+  # A commit saying [apple-wc] leaves them to the Simulators.
+  SIMLINK_LIVE: ${{ contains(github.event.head_commit.message, '[apple-wc]') && '0' || (inputs.simlink_live == null && '1' || inputs.simlink_live) }}
   # A runner's taps and Bluetooth stand-ins are slower than a Mac's: each timed check gets 2 s more
   # there (none on our own Mac).
   TIME_SLACK: ${{ contains(github.event.head_commit.message, '[bench-mac]') && '0' || '2' }}
