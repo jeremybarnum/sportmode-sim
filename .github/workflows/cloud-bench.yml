@@ -68,18 +68,22 @@ jobs:
       # The apps take 40 minutes to build here: kept per workspace commit, aids and harness.
       - name: Key for the built apps
         id: key
-        run: echo "apps=apps-$(git -C "$WORKSPACE" rev-parse FETCH_HEAD)-${{ hashFiles('aids/**', 'sim.sh') }}" >>"$GITHUB_OUTPUT"
+        run: |
+          ws=$(git -C "$WORKSPACE" rev-parse FETCH_HEAD)
+          echo "ws=apps-$ws-" >>"$GITHUB_OUTPUT"
+          echo "apps=apps-$ws-$(cat aids/*/* sim.sh | shasum -a 256 | cut -c1-16)" >>"$GITHUB_OUTPUT"
 
       - uses: actions/cache/restore@v4
         id: apps
         with:
           path: build/dd/Build/Products
           key: ${{ steps.key.outputs.apps }}
+          restore-keys: ${{ steps.key.outputs.ws }}
 
       - name: Loop's phone and watch apps
         timeout-minutes: 90
         run: |
-          if [ "${{ steps.apps.outputs.cache-hit }}" = true ]; then echo "apps from the cache"
+          if [ -d build/dd/Build/Products/Debug-iphonesimulator/Loop.app ]; then echo "apps from the cache (${{ steps.apps.outputs.cache-matched-key }})"
           else ./sim.sh apps || { grep -E " error:|BUILD FAILED" build/run/apps-build.log | head -40; exit 1; }; fi
           ./sim.sh install
 
