@@ -53,14 +53,24 @@ check() { # strategy
 
 done_pair() { xcrun simctl shutdown "$P" "$W" 2>/dev/null; xcrun simctl delete "$P" "$W" 2>/dev/null; }
 
-for v in ${PROBE_VERSIONS:-26.4 26.2}; do
+# The Mac where the phone does see the watch app runs Simulator.app the whole time, and uses
+# an iPhone 17 Pro and an Apple Watch Series 11 (46mm) on 26.5.
+pick() { # runtime pattern fallback
+	xcrun simctl list runtimes -j | python3 -c "import json,sys; r=[r for r in json.load(sys.stdin)['runtimes'] if r['identifier']=='$1'][0]; t=[t['identifier'] for t in r['supportedDeviceTypes'] if '$2' in t['identifier']]; print(t[0] if t else '$3')"
+}
+pairs() { xcrun simctl list pairs | grep -A3 "probe" | tr -s ' ' | head -8; }
+open -a Simulator; sleep 15
+say "Simulator.app: $(pgrep -x Simulator >/dev/null && echo running || echo not running)"
+for v in ${PROBE_VERSIONS:-26.5}; do
 	pr=$(rt iOS "$v"); wr=$(rt watchOS "$v")
 	[ -n "$pr" ] && [ -n "$wr" ] || { say "no $v runtimes"; continue; }
-	pt=$(dt "$pr" iPhone); wt=$(dt "$wr" Apple-Watch)
-	say "$v: phone app, then watch app, watch app launched, phone launched twice ($pr, $wr)"
+	pt=$(pick "$pr" iPhone-17-Pro "$(dt "$pr" iPhone)"); wt=$(pick "$wr" Apple-Watch-Series-11-46mm "$(dt "$wr" Apple-Watch)")
+	say "$v with Simulator.app: $pt, $wt"
 	new_pair "$v"
+	say "pair after boot:"; pairs
 	xcrun simctl install "$P" "$PHONE_APP"; xcrun simctl install "$W" "$WATCH_APP"
 	xcrun simctl launch "$W" "$WID" >/dev/null; sleep 20
-	check "$v-1"; sleep 20; check "$v-2"
+	check "$v-1"; say "pair:"; pairs
+	sleep 20; check "$v-2"
 	done_pair
 done
