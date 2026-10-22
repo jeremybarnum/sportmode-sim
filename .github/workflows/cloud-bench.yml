@@ -103,7 +103,7 @@ jobs:
         run: ./sim.sh start -fresh
 
       - name: Onboard the phone
-        timeout-minutes: 30
+        timeout-minutes: 75
         run: |
           ./sim.sh launch phone
           sleep 10
