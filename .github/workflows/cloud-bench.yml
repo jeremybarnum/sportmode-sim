@@ -30,6 +30,8 @@ env:
   WORKSPACE: ${{ github.workspace }}/../LoopWorkspace
   # Unsigned machines: every target signed ad hoc, with one team so the bundle ids agree.
   APPS_FLAGS: CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY=- PROVISIONING_PROFILE_SPECIFIER= DEVELOPMENT_TEAM=CI00000000
+  # A runner can be slow enough that a tap driver takes minutes to attach.
+  UI_ATTACH_SECONDS: 600
 
 jobs:
   bench:

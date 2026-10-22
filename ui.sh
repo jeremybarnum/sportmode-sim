@@ -45,7 +45,7 @@ start() { # side
 		>"$out/ui-$1.log" 2>&1 &
 	echo $! >"$q/$1.pid"
 	i=0; until [ -f "$q/$1.ready" ]; do
-		i=$((i + 1)); [ $i -gt 600 ] && { echo "$1 driver did not attach; see $out/ui-$1.log" >&2; exit 1; }
+		i=$((i + 1)); [ $i -gt $((${UI_ATTACH_SECONDS:-120} * 5)) ] && { echo "$1 driver did not attach; see $out/ui-$1.log" >&2; exit 1; }
 		sleep 0.2
 	done
 	cut -d' ' -f2- "$q/$1.ready"
