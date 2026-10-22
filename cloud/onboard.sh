@@ -57,7 +57,11 @@ tap_candidate() { # candidate...
 	for c in "$@"; do
 		case "$c" in
 		~*) shows_like "${c#\~}" && "$UI" phone "tap~" "${c#\~}" >/dev/null 2>&1 && { say "tapped ~${c#\~}"; return 0; } ;;
-		*) shows "$c" && tap "$c" && return 0 ;;
+		*)
+			# A choice already made (a list row that reads "…, Selected") is passed over for the next
+			# button, so a flow moves on to its Continue or Confirm.
+			grep -qF "label: '$c, " "$TREE" 2>/dev/null && grep -F "label: '$c, " "$TREE" | grep -q ", Selected'" && continue
+			shows "$c" && tap "$c" && return 0 ;;
 		esac
 	done
 	return 1
