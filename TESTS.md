@@ -82,7 +82,7 @@ Pass: phone `GRANT` numbered above the watch's loan; watch `GRANT received`, `AC
 **T16.** Start on the watch; bolus 0.5 U on the watch. `watch off`. Keep the phone app in front; touch nothing for
 about 12 minutes. Pass: phone `asking the watch whether it holds the pod`, about 10 s later `the watch did NOT answer —
 taking the pod back`, `take-back: pod link up`, `reconcile[FORCE-RECLAIM]` booking about 0.5 U, `temp cancelled`,
-"Watch Not Responding".
+"Watch Not Looping".
 
 **T17.** Start on the watch, one cycle. `watch off`. Take the pod back on the phone and bolus 0.5 U on the phone
 (passcode 0000). `watch on`. Pass: watch `RESUMED`, `statusReport sent … asking the phone before looping`, `RX
