@@ -129,8 +129,8 @@ drain 180 "Turn On All" "Allow" "Close" "OK" "Not Now"
 
 say "CGM: Dexcom G7, code 4321"
 # The status screen's CGM tile reads "Tap to add" and opens the picker (Settings' row is off screen).
-advance "Dexcom G7" 60 glucoseHUDView
-tap "Dexcom G7" || fail "could not pick Dexcom G7"
+advance pluginPickerItem-G7CGMManager 60 glucoseHUDView
+tap pluginPickerItem-G7CGMManager "Dexcom G7 / ONE+" || fail "could not pick Dexcom G7"
 advance "Enter Code by Hand" 120 "Pair Sensor" "Sensor Is On, Continue" "Continue" "Allow"
 tap "Enter Code by Hand" || fail "no Enter Code by Hand"
 sleep 1
