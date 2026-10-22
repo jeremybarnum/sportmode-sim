@@ -319,10 +319,20 @@ watch_bolus_start() { # units (a multiple of 0.5)
 
 # The phone's bolus screen: the amount, Deliver, and the Simulator's passcode if it asks for one.
 phone_bolus() { # units
+	local i
 	dismiss_alert
 	ui phone tap Bolus
-	if [ -n "$PHONE_BOLUS_FIELD" ]; then ui phone tap "$PHONE_BOLUS_FIELD"; else ui phone field; fi
-	ui phone type "$1"
+	# The typing can come before the field has the keyboard, and then goes nowhere: check the amount
+	# shows, and enter it once more if not.
+	for i in 1 2; do
+		if [ -n "$PHONE_BOLUS_FIELD" ]; then ui phone tap "$PHONE_BOLUS_FIELD"; else ui phone field; fi
+		sleep 1
+		"$UI" phone type "$1" >/dev/null 2>&1 || true
+		"$UI" phone tree >/dev/null 2>&1
+		grep -q "TextField.*value: $1\b" /tmp/sportmode-ui/phone.tree && break
+		[ "$i" = 2 ] && abort "the bolus amount did not go into the field"
+		say "the amount did not go in; entering it again"
+	done
 	ui phone tap Done
 	ui phone tap "$PHONE_BOLUS_ACTION"
 	sleep 2
