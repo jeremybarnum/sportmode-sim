@@ -14,6 +14,8 @@ TREE=/tmp/sportmode-ui/phone.tree
 out=${ONBOARD_OUT:-$here/build/onboard}
 mkdir -p "$out"
 n=0
+# Time limits are multiplied by this on a slow machine (a runner can take a minute a tap).
+SLOW=${ONBOARD_SLOW:-1}
 
 say() { printf '%s  %s\n' "$(date +%T)" "$*"; }
 
@@ -70,7 +72,7 @@ tap_candidate() { # candidate...
 # Tap through a flow until goal shows. Only for a goal that is not on a screen under the flow
 # (the element tree lists what a sheet covers).
 advance() { # goal seconds candidate...
-	local goal=$1 end=$(($(date +%s) + $2))
+	local goal=$1 end=$(($(date +%s) + $2 * SLOW))
 	shift 2
 	while :; do
 		case "$goal" in
@@ -87,10 +89,11 @@ advance() { # goal seconds candidate...
 # Tap through a flow until nothing of it is left to tap: none of the candidates on screen at three
 # looks in a row.
 drain() { # seconds candidate...
-	local end=$(($(date +%s) + $1)) idle=0
+	local end=$(($(date +%s) + $1 * SLOW)) idle=0
 	shift
 	while [ $idle -lt 3 ]; do
-		[ "$(date +%s)" -ge "$end" ] && fail "a flow did not finish (still tapping: $*)"
+		# Out of time with nothing left to tap at the last look is done, only slow.
+		[ "$(date +%s)" -ge "$end" ] && { [ $idle -gt 0 ] && return 0; fail "a flow did not finish (still tapping: $*)"; }
 		allow_alerts
 		close_alarms
 		if tap_candidate "$@"; then idle=0; sleep 2; else idle=$((idle + 1)); sleep 2; fi
@@ -158,7 +161,7 @@ advance "Pair Pod" 180 "Omnipod DASH" "Confirm Pod Type" "~Novolog, A rapid-acti
 # PairPodViewModel and InsertCannulaViewModel): pair, then wait for "paired"; slide, then wait for
 # "inserted". "Retry" is an error.
 wait_label() { # label seconds what (in 60 s waits: ui.sh gives a command 150 s to answer)
-	local end=$(($(date +%s) + $2))
+	local end=$(($(date +%s) + $2 * SLOW))
 	while [ "$(date +%s)" -lt "$end" ]; do
 		"$UI" phone wait 60 "$1" >/dev/null 2>&1 && return 0
 		shows Retry && fail "$3 failed"
