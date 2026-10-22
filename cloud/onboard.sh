@@ -132,7 +132,18 @@ done
 
 say "Welcome: hold the logo to skip setup"
 "$UI" phone wait 90 loopLogo >/dev/null 2>&1 || fail "no Welcome screen"
-"$UI" phone press 3 loopLogo >/dev/null || fail "could not hold the logo"
+# A system alert that comes up late (run 23: notifications, just after the hold) can take the hold:
+# answer alerts first, and hold again while Welcome is still up with nothing over it.
+for i in 1 2 3; do
+	allow_alerts
+	"$UI" phone press 3 loopLogo >/dev/null || fail "could not hold the logo"
+	sleep $((5 * SLOW))
+	allow_alerts
+	"$UI" phone tree >/dev/null 2>&1
+	grep -q "label: 'Let's Go!'" "$TREE" 2>/dev/null && ! grep -qE "label: '(Turn On All|Allow|Close|OK|Not Now)'" "$TREE" || break
+	[ $i = 3 ] && fail "the logo hold did not skip setup"
+	say "the logo hold was not taken (try $i); again"
+done
 sleep 3
 screen after-skip 40
 
