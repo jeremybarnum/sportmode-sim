@@ -29,7 +29,8 @@ else DevToolsSecurity -status; fi
 
 say "xcodegen"
 if ! command -v xcodegen >/dev/null; then
-	if [ -n "$admin" ] && command -v brew >/dev/null; then brew install xcodegen
+	# Homebrew if this Mac has one this account can install with; else the release, in the home folder.
+	if command -v brew >/dev/null && brew install xcodegen; then :
 	else
 		# The release's own build, in the home folder; its templates sit beside its binary.
 		curl -fsSL -o /tmp/xcodegen.zip https://github.com/yonaskolb/XcodeGen/releases/latest/download/xcodegen.zip
