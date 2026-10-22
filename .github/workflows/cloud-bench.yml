@@ -36,7 +36,7 @@ env:
 
 jobs:
   bench:
-    if: ${{ !contains(github.event.head_commit.message, '[probe]') }}
+    if: ${{ !contains(github.event.head_commit.message, '[probe]') && !contains(github.event.head_commit.message, '[pairdiag]') }}
     runs-on: macos-26
     timeout-minutes: 240
     steps:
@@ -212,3 +212,18 @@ jobs:
       - name: Probe
         timeout-minutes: 90
         run: ./cloud/probe.sh
+
+  # A commit whose message says [pairdiag] runs cloud/pairdiag.sh: why a fresh pair stays
+  # disconnected on a runner. No apps, so no build or cache.
+  pairdiag:
+    if: ${{ contains(github.event.head_commit.message, '[pairdiag]') }}
+    runs-on: macos-26
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v5
+      - name: Xcode
+        run: |
+          x=$(ls -d /Applications/Xcode_[0-9]*.app | sort -V | tail -1)
+          sudo xcode-select --switch "$x/Contents/Developer"
+      - name: Pair diagnosis
+        run: ./cloud/pairdiag.sh
