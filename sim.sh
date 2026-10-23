@@ -22,6 +22,7 @@
 #   sim.sh link slow <s>|normal  each live phone–watch message arrives <s> late, or on time again
 #   sim.sh link down|up     the phone–watch link alone cut, each still in reach of the pod and sensor
 #   sim.sh link wedge|unwedge  reachable, but each live message lost (its sender times out), or delivered again
+#   sim.sh link hold|release   reachable, but everything kept in flight, or handed over in order
 #   sim.sh glucose <mg/dL>|walk <mg/dL>|sine <mg/dL> <amplitude>  what the sensor reads from now on
 #   sim.sh phone radio-off|radio-on  Bluetooth off on the phone (it reads powered off), the watch link up
 #   sim.sh watch off|on     shut the watch Simulator down; boot it and launch the watch app
@@ -236,6 +237,7 @@ link() {
 	mkdir -p "$run"
 	if [ -e "$run/phone-away" ] || [ -e "$run/watch-off" ] || [ -e "$run/link-down" ]; then echo down >"$LINK"
 	elif [ -e "$run/link-wedge" ]; then echo wedge >"$LINK"
+	elif [ -e "$run/link-hold" ]; then echo hold >"$LINK"
 	elif [ -s "$run/link-slow" ]; then echo "slow $(cat "$run/link-slow")" >"$LINK"
 	else rm -f "$LINK"; fi
 }
@@ -251,7 +253,11 @@ linkcmd() {
 	# hears a timeout. Queued transfers still flow.
 	wedge) mkdir -p "$run"; touch "$run/link-wedge"; link; echo "link: wedged (reachable, live messages lost)" ;;
 	unwedge) rm -f "$run/link-wedge"; link; echo "link: live messages delivered again" ;;
-	*) echo "link slow <s>|normal|down|up|wedge|unwedge" >&2; exit 2 ;;
+	# Reachable, but everything between the two kept in flight until release, then handed over in
+	# order: a stalled link (a dropped wrist) for as long as a test needs, whatever the machine's speed.
+	hold) mkdir -p "$run"; touch "$run/link-hold"; link; echo "link: holding (reachable, nothing delivered)" ;;
+	release) rm -f "$run/link-hold"; link; echo "link: released" ;;
+	*) echo "link slow <s>|normal|down|up|wedge|unwedge|hold|release" >&2; exit 2 ;;
 	esac
 }
 

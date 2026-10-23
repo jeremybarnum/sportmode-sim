@@ -153,7 +153,8 @@ launch-order bug that a device rarely meets.
   (refused payloads, a message nobody takes failing to its sender after 15 s, reply timeouts, and
   reachability: the watch reads the phone reachable while the link is up, the phone the watch while
   the watch app runs). `sim.sh link wedge` is the field's one-way wedge: reachable, each live
-  message lost. `TIME_SLACK=<s>` adds to every timed check's limit, for a slow machine.
+  message lost. `sim.sh link hold` keeps everything in flight until `release`, for a test
+  that needs the phone's answer held while it taps, at any machine's speed. `TIME_SLACK=<s>` adds to every timed check's limit, for a slow machine.
 - The pod simulator does not filter scans by service.
 
 A full pass of the scripted tests takes about 30 minutes at scale 5, 50 at real time.

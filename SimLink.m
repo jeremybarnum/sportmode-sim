@@ -20,6 +20,10 @@
 // cancelled, as on a device. Application context, which the Simulators do
 // deliver, stays with the system.
 //
+// "hold" keeps everything in flight between the two (live messages, and the queued
+// channels' deliveries) until the control file says otherwise, then hands it over in
+// order: a link reachable but stalled, as a dropped wrist, for as long as a test needs.
+//
 // "wedge" in the control file is the field's one-way wedge (#113 variant A): isReachable
 // still reads YES, but each live message is lost, and its sender hears a timeout
 // after $SIMLINK_LIVE_TIMEOUT seconds (default 15).
@@ -58,6 +62,8 @@ static dispatch_queue_t heldQueue;          // the held deliveries, in arrival o
 static NSMutableArray<dispatch_block_t> *held;
 static NSDictionary *deliveredContext;      // the last application context the app was given
 static BOOL wedged;                         // "wedge": reachable, and every live message lost
+static BOOL holding;                        // "hold": reachable, everything kept in flight
+static NSMutableArray<dispatch_block_t> *onHold;   // the live messages kept, in order; on slowQueue
 static BOOL liveCarried;                    // SIMLINK_LIVE=1: this library carries the live messages
 static double liveTimeout;                  // seconds a live message waits to be taken
 
@@ -70,11 +76,19 @@ static BOOL readDown(void) {
     BOOL wedge = [s isEqualToString:@"wedge"];
     if (wedge != wedged) NSLog(@"SimLink: link %@", wedge ? @"WEDGED (reachable, live messages lost)" : @"no longer wedged");
     wedged = wedge;
+    BOOL hold = [s isEqualToString:@"hold"];
+    if (hold != holding) NSLog(@"SimLink: link %@", hold ? @"HOLDING (reachable, nothing delivered)" : @"released");
+    holding = hold;
     return [s isEqualToString:@"down"];
 }
 
 // A live message, now or after the link's latency.
 static void arrive(dispatch_block_t block) {
+    if (holding) {
+        dispatch_block_t kept = [block copy];
+        dispatch_async(slowQueue, ^{ [onHold addObject:kept]; });
+        return;
+    }
     if (latency <= 0) { block(); return; }
     double wait = latency;
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(wait * NSEC_PER_SEC)), slowQueue, ^{
@@ -124,11 +138,11 @@ static NSMutableArray<SLUserInfoTransfer *> *outstanding;
 // hooked on that class, not wrapped in a proxy: each hook checks the link, then calls the app's own.
 static IMP appMessage, appMessageReply, appData, appDataReply, appUserInfo, appContext, appFile;
 
-// Runs now, or later in order if the link is down (or earlier deliveries still wait).
+// Runs now, or later in order if the link is down or held (or earlier deliveries still wait).
 static void deliver(dispatch_block_t block) {
     __block BOOL now = NO;
     dispatch_sync(heldQueue, ^{
-        if (!linkDown && held.count == 0) {
+        if (!linkDown && !holding && held.count == 0) {
             now = YES;
         } else {
             [held addObject:[block copy]];
@@ -175,7 +189,7 @@ static void sl_context(id self, SEL _cmd, WCSession *session, NSDictionary *cont
 }
 
 static void sl_file(id self, SEL _cmd, WCSession *session, WCSessionFile *file) {
-    if (!linkDown) {
+    if (!linkDown && !holding) {
         __block BOOL now = NO;
         dispatch_sync(heldQueue, ^{ now = held.count == 0; });
         if (now) { ((void (*)(id, SEL, id, id))appFile)(self, _cmd, session, file); return; }
@@ -353,7 +367,7 @@ static id sl_transferFile(WCSession *self, SEL _cmd, NSURL *url, NSDictionary *m
 static void drainInbox(void) {
     WCSession *session = WCSession.defaultSession;
     id delegate = session.delegate;
-    if (linkDown || !delegate || session.activationState != WCSessionActivationStateActivated) return;
+    if (linkDown || holding || !delegate || session.activationState != WCSessionActivationStateActivated) return;
     NSArray *names = [[NSFileManager.defaultManager contentsOfDirectoryAtPath:inbox error:nil]
                       sortedArrayUsingSelector:@selector(compare:)];
     for (NSString *name in names) {
@@ -533,24 +547,40 @@ static IMP swap(SEL sel, IMP replacement) {
 
 #pragma mark - The control file
 
+// Hand over what waited, in order; what arrives meanwhile queues behind it.
+static void handOverHeld(void) {
+    NSUInteger n = 0;
+    for (;;) {
+        __block dispatch_block_t block = nil;
+        dispatch_sync(heldQueue, ^{ if (held.count) block = held[0]; });
+        if (!block) break;
+        block();
+        dispatch_sync(heldQueue, ^{ [held removeObjectAtIndex:0]; });
+        n++;
+    }
+    if (n) NSLog(@"SimLink: %lu held deliveries handed over", (unsigned long)n);
+}
+
+// "hold" ended: the live messages kept, then the queued deliveries, in order.
+static void released(void) {
+    dispatch_async(slowQueue, ^{
+        NSArray<dispatch_block_t> *kept = [onHold copy];
+        [onHold removeAllObjects];
+        if (kept.count) NSLog(@"SimLink: %lu live message(s) kept on hold handed over", (unsigned long)kept.count);
+        for (dispatch_block_t b in kept) {
+            if (linkDown) { NSLog(@"SimLink: live message kept on hold dropped, link down"); continue; }
+            b();
+        }
+    });
+    if (!linkDown) handOverHeld();
+}
+
 static void linkChanged(BOOL down) {
     linkDown = down;
     NSLog(@"SimLink: link %@", down ? @"DOWN" : @"UP");
     WCSession *session = WCSession.defaultSession;
     id<WCSessionDelegate> delegate = session.delegate;
-    if (!down) {
-        // Hand over what waited, in order; what arrives meanwhile queues behind it.
-        NSUInteger n = 0;
-        for (;;) {
-            __block dispatch_block_t block = nil;
-            dispatch_sync(heldQueue, ^{ if (held.count) block = held[0]; });
-            if (!block) break;
-            block();
-            dispatch_sync(heldQueue, ^{ [held removeObjectAtIndex:0]; });
-            n++;
-        }
-        if (n) NSLog(@"SimLink: %lu held deliveries handed over", (unsigned long)n);
-    }
+    if (!down && !holding) handOverHeld();
     if ([delegate respondsToSelector:@selector(sessionReachabilityDidChange:)]) {
         [delegate sessionReachabilityDidChange:session];
     }
@@ -586,6 +616,7 @@ static void SimLinkLoad(void) {
     heldQueue = dispatch_queue_create("SimLink.held", DISPATCH_QUEUE_SERIAL);
     slowQueue = dispatch_queue_create("SimLink.slow", DISPATCH_QUEUE_SERIAL);
     held = [NSMutableArray array];
+    onHold = [NSMutableArray array];
     origIsReachable = swap(@selector(isReachable), (IMP)sl_isReachable);
     origSendMessage = swap(@selector(sendMessage:replyHandler:errorHandler:), (IMP)sl_sendMessage);
     origSendMessageData = swap(@selector(sendMessageData:replyHandler:errorHandler:), (IMP)sl_sendMessageData);
@@ -614,8 +645,10 @@ static void SimLinkLoad(void) {
     dispatch_source_t timer = dispatch_source_create(DISPATCH_SOURCE_TYPE_TIMER, 0, 0, q);
     dispatch_source_set_timer(timer, dispatch_time(DISPATCH_TIME_NOW, 0), 250 * NSEC_PER_MSEC, 50 * NSEC_PER_MSEC);
     dispatch_source_set_event_handler(timer, ^{
+        BOOL wasHolding = holding;
         BOOL down = readDown();
         if (down != linkDown) linkChanged(down);
+        if (wasHolding && !holding) released();
         drainInbox();
     });
     dispatch_resume(timer);

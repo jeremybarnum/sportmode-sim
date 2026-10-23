@@ -4,8 +4,9 @@
 # moments after a watch bolus is sent, before the pod accepts it, is refused too. A 2 U bolus takes
 # the simulated pod about 80 s (0.05 U every 2 s), as a DASH pod; for (b2) the pod is made to hold
 # the bolus command 3 s before accepting it (under the 5 s the watch waits for a reply). (b3): a watch
-# bolus asked for while an End's hand-back waits for the phone's answer (the link made 3 s slow each
-# way) is refused, "Bolus Not Sent", and the End completes (ruled 2026-10-21).
+# bolus asked for while an End's hand-back waits for the phone's answer (the link held, so nothing
+# reaches the phone until the bolus has been asked for, however slow the machine's taps) is refused,
+# "Bolus Not Sent", and the End completes once the link is released (ruled 2026-10-21).
 TEST=T22
 . "$(dirname "$0")/lib.sh"
 set -u
@@ -68,12 +69,13 @@ take_back
 wait_for watch "$tb2" 'CLOSED — ' 120
 
 say "a new loan; (b3) End, then a watch bolus asked for while the hand-back waits for the phone's answer"
-# Each live message arrives 3 s late, so the phone's acknowledgement reaches the watch about 7 s
-# after the End: the bolus is asked for in between, and the watch must refuse it.
+# The link is held from the End on: the hand-back's offer waits in flight, so the phone's answer
+# cannot come before the bolus has been asked for, at whatever speed the taps go (a slow runner's
+# took longer than the 7 s a 3 s-slow link gave). Released once the watch has answered the bolus.
 d0=$(now)
 start_loan "$d0"
-sim link slow 3
 watch_main
+sim link hold
 td=$(now)
 ui watch tap End
 # The bolus taps as fast as they go; the refusal may come at any step, so none of them ends the test.
@@ -81,8 +83,11 @@ watch_page 1
 for step in "tap $WATCH_BOLUS" "tap +" "tap +" "tap +" "tap +" "tap Bolus" "double Turn Digital"; do
 	"$UI" watch $step >/dev/null 2>&1 || true
 done
-sleep 20
-sim link normal
+for i in $(seq 30); do
+	[ -n "$(lines watch "$td" 'BOLUS REFUSED|MANUAL BOLUS .*enacting')" ] && break
+	sleep 2
+done
+sim link release
 wait_for watch "$td" 'CLOSED — ' 120
 wait_for phone "$td" 'reclaim VERIFIED' 120
 watch_close_sheets

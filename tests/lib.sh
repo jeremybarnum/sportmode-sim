@@ -356,6 +356,8 @@ reset() {
 	"$SIM" pod back >/dev/null 2>&1 || true
 	"$SIM" link up >/dev/null 2>&1 || true
 	"$SIM" link normal >/dev/null 2>&1 || true
+	"$SIM" link release >/dev/null 2>&1 || true
+	"$SIM" link unwedge >/dev/null 2>&1 || true
 	[ -e "$RUN/watch-off" ] && "$SIM" watch on >/dev/null 2>&1
 	if [ -e "$RUN/watch-rebooted" ]; then
 		say "the watch Simulator rebooted since the last reset: the phone app restarts so the watch's queued transfers arrive"
