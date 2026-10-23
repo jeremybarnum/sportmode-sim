@@ -70,24 +70,29 @@ wait_for watch "$tb2" 'CLOSED — ' 120
 
 say "a new loan; (b3) End, then a watch bolus asked for while the hand-back waits for the phone's answer"
 # The link is held from the End on: the hand-back's offer waits in flight, so the phone's answer
-# cannot come before the bolus has been asked for, at whatever speed the taps go (a slow runner's
-# took longer than the 7 s a 3 s-slow link gave). Released once the watch has answered the bolus.
+# cannot come before the bolus has been asked for (a slow runner's taps took longer than the 7 s a
+# 3 s-slow link gave). Released once the watch has answered the bolus, and in any case 8 s after
+# the End: the watch gives the phone 10 s to answer, then calls the End off (run 32), so a machine
+# whose taps take longer than that cannot ask for the bolus in time, and (b3) says so.
 d0=$(now)
 start_loan "$d0"
 watch_main
 sim link hold
 td=$(now)
 tap_end >/dev/null
+( sleep 8; "$SIM" link release >/dev/null 2>&1 ) &
+release_at_8=$!
 # The bolus taps as fast as they go; the refusal may come at any step, so none of them ends the test.
 watch_page 1
 for step in "tap $WATCH_BOLUS" "tap +" "tap +" "tap +" "tap +" "tap Bolus" "double Turn Digital"; do
 	"$UI" watch $step >/dev/null 2>&1 || true
 done
-for i in $(seq 30); do
+for i in $(seq 8); do
 	[ -n "$(lines watch "$td" 'BOLUS REFUSED|MANUAL BOLUS .*enacting')" ] && break
-	sleep 2
+	sleep 1
 done
 sim link release
+kill "$release_at_8" 2>/dev/null || true
 wait_for watch "$td" 'CLOSED — ' 120
 wait_for phone "$td" 'reclaim VERIFIED' 120
 watch_close_sheets
