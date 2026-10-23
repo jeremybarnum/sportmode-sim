@@ -82,19 +82,19 @@ static BOOL readDown(void) {
     return [s isEqualToString:@"down"];
 }
 
-// A live message, now or after the link's latency.
+// A live message, now or after the link's latency, in order on slowQueue. Kept while the link is
+// held, or while earlier ones kept still wait: the check and the keeping happen on slowQueue, as the
+// hand-over does, so a message landing as the hold ends is never left behind (run 28).
 static void arrive(dispatch_block_t block) {
-    if (holding) {
-        dispatch_block_t kept = [block copy];
-        dispatch_async(slowQueue, ^{ [onHold addObject:kept]; });
-        return;
-    }
-    if (latency <= 0) { block(); return; }
+    dispatch_block_t message = [block copy];
     double wait = latency;
-    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(wait * NSEC_PER_SEC)), slowQueue, ^{
-        if (linkDown) { NSLog(@"SimLink: late live message dropped, link down"); return; }
-        block();
-    });
+    dispatch_block_t land = ^{
+        if (holding || onHold.count) { [onHold addObject:message]; return; }
+        if (wait > 0 && linkDown) { NSLog(@"SimLink: late live message dropped, link down"); return; }
+        message();
+    };
+    if (wait > 0) dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(wait * NSEC_PER_SEC)), slowQueue, land);
+    else dispatch_async(slowQueue, land);
 }
 
 #pragma mark - A file held across the gap
@@ -564,13 +564,14 @@ static void handOverHeld(void) {
 // "hold" ended: the live messages kept, then the queued deliveries, in order.
 static void released(void) {
     dispatch_async(slowQueue, ^{
-        NSArray<dispatch_block_t> *kept = [onHold copy];
-        [onHold removeAllObjects];
-        if (kept.count) NSLog(@"SimLink: %lu live message(s) kept on hold handed over", (unsigned long)kept.count);
-        for (dispatch_block_t b in kept) {
+        NSUInteger n = 0;
+        while (onHold.count && !holding) {
+            dispatch_block_t b = onHold[0];
+            [onHold removeObjectAtIndex:0];
             if (linkDown) { NSLog(@"SimLink: live message kept on hold dropped, link down"); continue; }
-            b();
+            b(); n++;
         }
+        if (n) NSLog(@"SimLink: %lu live message(s) kept on hold handed over", (unsigned long)n);
     });
     if (!linkDown) handOverHeld();
 }

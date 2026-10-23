@@ -32,7 +32,7 @@ abort() {
 	say "STOPPED: $*" >&2; failed=1
 	for side in phone watch; do
 		echo "        last $side lines:" >&2
-		"$SIM" since "$side" "$T0" 2>&1 | grep -vE '\[(cgm|glucose)\]' | tail -25 | sed 's/^/          /' >&2
+		"$SIM" since "$side" "$T0" 2>&1 | grep -vE '\[(cgm|glucose|complication)\]' | tail -25 | sed 's/^/          /' >&2
 	done
 	verdict >&2
 }
