@@ -52,7 +52,7 @@ sims_file=$here/.sims${RIG:+-$RIG}
 # The simulators, at the commits this harness was tested with (LoopKit/g7sim and LoopKit/pod with
 # the changes proposed upstream; g7sim builds ImpossiBLE with its own patches).
 G7SIM=https://github.com/jeremybarnum/g7sim; G7SIM_COMMIT=ee2a13b
-POD=https://github.com/jeremybarnum/pod;     POD_COMMIT=3823843
+POD=https://github.com/jeremybarnum/pod;     POD_COMMIT=0792df6
 
 [ -f "$sims_file" ] && . "$sims_file"
 PHONE=${PHONE_SIM:-${SIMS_PHONE:-}}
