@@ -25,8 +25,17 @@ failed=0
 
 say() { printf '%s  %s\n' "$(date +%T)" "$*"; }
 
-# A step that cannot be done ends the test.
-abort() { say "STOPPED: $*" >&2; failed=1; verdict >&2; }
+# A step that cannot be done ends the test, with the apps' last lines since its start (on a machine
+# whose logs are not at hand, as a runner's, the job log then says what they were doing).
+abort() {
+	local side
+	say "STOPPED: $*" >&2; failed=1
+	for side in phone watch; do
+		echo "        last $side lines:" >&2
+		"$SIM" since "$side" "$T0" 2>&1 | grep -vE '\[(cgm|glucose)\]' | tail -25 | sed 's/^/          /' >&2
+	done
+	verdict >&2
+}
 
 # ui <side> <command>: a tap or wait in an app; a failure ends the test.
 ui() { out=$("$UI" "$@" 2>&1) || abort "$out"; }
@@ -336,6 +345,13 @@ phone_bolus() { # units
 reset() {
 	local i t
 	say "Reset: everything in range, both apps up, no loan"
+	# A stand-in that died (run 25: pod-sim's "Messaging loop is already running", a fatal) fails
+	# every test after it: say so, with its last words, and start it again from its saved state.
+	if "$SIM" status 2>/dev/null | grep -q ': stopped'; then
+		say "stopped: $("$SIM" status 2>/dev/null | grep ': stopped' | cut -d: -f1 | tr '\n' ' ')— starting again; pod's last lines:"
+		tail -3 "$RUN/pod.log" 2>/dev/null | cut -c1-160 | sed 's/^/          /'
+		"$SIM" start >/dev/null 2>&1 || say "could not start the stand-ins again"
+	fi
 	"$SIM" phone back >/dev/null 2>&1 || true
 	"$SIM" pod back >/dev/null 2>&1 || true
 	"$SIM" link up >/dev/null 2>&1 || true
