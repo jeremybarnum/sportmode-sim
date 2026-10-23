@@ -230,6 +230,19 @@ tap_start() {
 	abort "the watch did not take the Start tap"
 }
 
+# Tap End on the watch until the watch takes it, as tap_start does Start; prints the time of the
+# tap that registered. A swallowed End left T22 (b3) in a loan with its link held (run 31).
+tap_end() {
+	local i t
+	for i in 1 2 3; do
+		t=$(now)
+		"$UI" watch tap End >/dev/null 2>&1 || true
+		logged_within watch "$t" 'HAND-BACK requested' 10 && { echo "$t"; return 0; }
+		say "the End tap was not taken; tapping again" >&2
+	done
+	abort "the watch did not take the End tap"
+}
+
 # A sheet left open on the watch (a list, the bolus screen) hides the pages.
 watch_close_sheets() {
 	local i

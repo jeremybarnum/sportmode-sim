@@ -77,7 +77,7 @@ start_loan "$d0"
 watch_main
 sim link hold
 td=$(now)
-ui watch tap End
+tap_end >/dev/null
 # The bolus taps as fast as they go; the refusal may come at any step, so none of them ends the test.
 watch_page 1
 for step in "tap $WATCH_BOLUS" "tap +" "tap +" "tap +" "tap +" "tap Bolus" "double Turn Digital"; do
