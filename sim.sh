@@ -287,8 +287,8 @@ watch() {
 		[ -f /tmp/sportmode-ui/watch.pid ] && kill "$(cat /tmp/sportmode-ui/watch.pid)" 2>/dev/null || true ;;
 	# The link comes up with the watch app, not with the watch: the paired Simulators accept a live
 	# message for an app not yet running and lose it, where a device would fail it to the queue.
-	away) mkdir -p "$run"; touch "$run/watch-away"; range app "$WATCH_ID" 0 ;;
-	back) rm -f "$run/watch-away"; range app "$WATCH_ID" 1 ;;
+	away) mkdir -p "$run"; touch "$run/watch-away"; range app "$WATCH_ID.watchkitextension" 0 ;;
+	back) rm -f "$run/watch-away"; range app "$WATCH_ID.watchkitextension" 1 ;;
 	on) xcrun simctl boot "$WATCH" 2>/dev/null || true
 		xcrun simctl bootstatus "$WATCH" -b >/dev/null; launch watch; rm -f "$run/watch-off"; link
 		# After the watch Simulator reboots, the phone app's queued transfers from the watch stop
