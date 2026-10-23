@@ -38,8 +38,10 @@
 // in 60 s times out. Reachability is SimLink's too, as on a device: the watch
 // reads the phone reachable while the link is up (iOS would wake the phone app),
 // the phone reads the watch reachable while the watch app runs (it touches a
-// heartbeat file each second). Activation and application context stay with the
-// system.
+// heartbeat file each second). The phone also reads the watch app installed once
+// that heartbeat has been written: the paired Simulators read it uninstalled after
+// each watch app relaunch, until the phone app's next launch, and the phone then
+// queues everything. Activation and application context stay with the system.
 //
 // Control file: $SIMLINK_FILE, default /tmp/sportmode-sim-link. Queues:
 // $SIMLINK_QUEUE/to-phone and to-watch, default /tmp/sportmode-sim-queue; live
@@ -236,6 +238,17 @@ static void hookDelegate(id delegate) {
 static IMP origIsReachable, origSendMessage, origSendMessageData, origSetDelegate, origReceivedContext;
 
 static BOOL liveReachable(void);
+static NSString *watchAlive;                // touched each second while the watch app can take messages
+
+#if !TARGET_OS_WATCH
+static IMP origIsWatchAppInstalled;
+
+// A watch app that has run is installed, as on a device: a relaunch does not uninstall it.
+static BOOL sl_isWatchAppInstalled(WCSession *self, SEL _cmd) {
+    if (liveCarried && [NSFileManager.defaultManager fileExistsAtPath:watchAlive]) return YES;
+    return ((BOOL (*)(id, SEL))origIsWatchAppInstalled)(self, _cmd);
+}
+#endif
 
 static BOOL sl_isReachable(WCSession *self, SEL _cmd) {
     if (linkDown) return NO;
@@ -392,7 +405,6 @@ static void drainInbox(void) {
 #pragma mark - The live messages (SIMLINK_LIVE=1)
 
 static NSString *liveOutbox, *liveInbox;
-static NSString *watchAlive;                // touched each second while the watch app can take messages
 static dispatch_queue_t liveQueue;          // the sends' bookkeeping and the deliveries, in order
 static NSMutableDictionary<NSString *, NSDictionary *> *pending;   // id -> the sender's handlers; on liveQueue
 static const NSUInteger maxLivePayload = 65536;
@@ -619,6 +631,9 @@ static void SimLinkLoad(void) {
     held = [NSMutableArray array];
     onHold = [NSMutableArray array];
     origIsReachable = swap(@selector(isReachable), (IMP)sl_isReachable);
+#if !TARGET_OS_WATCH
+    origIsWatchAppInstalled = swap(@selector(isWatchAppInstalled), (IMP)sl_isWatchAppInstalled);
+#endif
     origSendMessage = swap(@selector(sendMessage:replyHandler:errorHandler:), (IMP)sl_sendMessage);
     origSendMessageData = swap(@selector(sendMessageData:replyHandler:errorHandler:), (IMP)sl_sendMessageData);
     origSetDelegate = swap(@selector(setDelegate:), (IMP)sl_setDelegate);

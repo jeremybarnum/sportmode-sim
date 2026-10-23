@@ -152,7 +152,8 @@ launch-order bug that a device rarely meets.
   then no longer exercises the Simulators' own live channel, only SimLink's model of a device's
   (refused payloads, a message nobody takes failing to its sender after 15 s, reply timeouts, and
   reachability: the watch reads the phone reachable while the link is up, the phone the watch while
-  the watch app runs). `sim.sh link wedge` is the field's one-way wedge: reachable, each live
+  the watch app runs; and the phone reads the watch app installed once it has run, where the paired
+  Simulators read it uninstalled after each watch app relaunch). `sim.sh link wedge` is the field's one-way wedge: reachable, each live
   message lost. `sim.sh link hold` keeps everything in flight until `release`, for a test
   that needs the phone's answer held while it taps, at any machine's speed. `TIME_SLACK=<s>` adds to every timed check's limit, for a slow machine.
 - The pod simulator does not filter scans by service.
