@@ -41,11 +41,9 @@ WORKSPACE=~/src/LoopWorkspace ./sim.sh apps   # builds Loop's phone and watch ap
 `tree.sh` checks out the superproject branch from the checkout's origin (or keeps the current one when
 none is named) on a local branch `sim-testing`, and applies the Simulator-only aids as local commits;
 nothing is pushed, and nothing of the aids reaches a device build. The aids for the next-dev line
-(`aids/next-dev`) are four:
+(`aids/next-dev`) are three:
 - **The watch bolus by double tap.** A watch bolus is confirmed by turning the crown, which a test cannot
   do on that screen in the Simulator; a double tap confirms it in Simulator builds.
-- **OmnipodKit fakes the pod only when it is mocked.** In the Simulator it faked pod operations whenever
-  it ran there, even with a simulated pod answering; then a hand-back's temp cancel sent nothing.
 - **The time scale**, behind the `SIMULATED_TIME_SCALE_ENABLED` flag (see Faster runs).
 - **Sport Mode on**: `SPORT_MODE_ENABLED` and the watch's entitlements (its workout session and
   time-sensitive notifications) in `LoopConfigOverride.xcconfig`.
@@ -62,7 +60,10 @@ nothing is pushed, and nothing of the aids reaches a device build. The aids for 
   toggle it), then Done. The skipped setup leaves it off, and the tests expect the loop closed.
 
 Then `./sim.sh launch watch`, and `./sim.sh launch phone` again: the phone sees a watch app installed
-after it only at its next launch (its log then shows `appInstalled=true`). Before the first Start wait
+after it only at its next launch (its log then shows `appInstalled=true`). If it still logs
+`appInstalled=false`, install the phone app again with the pair booted (`sim.sh install` keeps its data) and
+relaunch it. Then, in the G7's settings on the phone, switch **Read on Apple Watch** on: the watch reads the
+sensor itself only with it, and Sport Mode refuses to start without it. Before the first Start wait
 for the watch to read the sensor. A bolus on the phone asks the Simulator's passcode: 0000.
 
 ## Commands
