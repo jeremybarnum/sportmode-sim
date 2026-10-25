@@ -34,8 +34,9 @@
 # LoopWorkspace checkout, for `apps`), APPS (a Build/Products directory, default build/dd's),
 # MUX_TRACE=1 (the mux logs every request and event for a peripheral), RIG=<name> (a second rig,
 # with its own Simulator pair in .sims-<name>, apps in build/dd-<name>, and
-# pod and sensor state in build/run-<name>; settings such as DEXCOM_APP=1 can go in .sims-<name>; one
-# rig runs at a time, as they share the simulators' sockets and ports), CONNECT_DELAY=<duration> (at `start`: how long each Bluetooth connect
+# pod and sensor state in build/run-<name>; settings such as DEXCOM_APP=1 can go in .sims-<name>; rigs
+# run at the same time only in different slots, SLOT=<n> in their .sims-<name>, each with its own
+# sockets, ports and files: see rig.sh), CONNECT_DELAY=<duration> (at `start`: how long each Bluetooth connect
 # takes, as over a radio; 1500ms by default, 0 for at once), DEXCOM_APP=1 (at `start`:
 # the simulated G7 also plays the Dexcom app, for a build whose G7 code does not authenticate itself
 # and rides the Dexcom app's link, as stock G7SensorKit does).
@@ -58,13 +59,7 @@ WATCH=${WATCH_SIM:-${SIMS_WATCH:-}}
 APPS=${APPS:-$out/dd${RIG:+-$RIG}/Build/Products}
 PHONE_APP=$APPS/Debug-iphonesimulator/Loop.app
 WATCH_APP=$APPS/Debug-watchsimulator/WatchApp.app
-POD_SOCK=/tmp/impossible-pod.sock
-G7_SOCK=/tmp/impossible-g7.sock
-POD_API=:8089
-G7_API=:8088
-MUX_API=:8087
-LINK=/tmp/sportmode-sim-link   # SimLink's control file: "down" parts the phone and the watch
-export SIMLINK_QUEUE=/tmp/sportmode-sim-queue
+. "$here/rig.sh"
 
 need_sims() {
 	[ -n "$PHONE" ] && [ -n "$WATCH" ] || { echo "no Simulators: run 'sim.sh sims', or set PHONE_SIM and WATCH_SIM" >&2; exit 2; }
@@ -88,12 +83,26 @@ build_link() { # sdk target out
 	echo "built $3"
 }
 
+# ImpossiBLE's simulator library, as g7sim's build-impossible.sh compiles it.
+build_impossible() { # sdk target out
+	src=$out/impossible/ImpossiBLE
+	xcrun -sdk "$1" clang -dynamiclib -fobjc-arc -fmodules -target "$2" \
+		-I "$src/Sources/ImpossiBLE/include" -I "$src/Sources/ImpossiBLE" \
+		-framework Foundation -framework CoreBluetooth -install_name @rpath/libImpossiBLE.dylib \
+		"$src"/Sources/ImpossiBLE/*.m -o "$out/impossible/$3"
+}
+
 build() {
 	mkdir -p "$out" "$run"
 	clone $G7SIM $G7SIM_COMMIT "$out/g7sim"
 	clone $POD $POD_COMMIT "$out/pod"
-	# ImpossiBLE for the iOS and watchOS Simulators, with g7sim's fixes.
-	"$out/g7sim/simulator/build-impossible.sh" "$out/impossible" >/dev/null && echo "built ImpossiBLE (iOS, watchOS)"
+	# ImpossiBLE for the iOS and watchOS Simulators, with g7sim's fixes, then this harness's own
+	# (impossible-patches: the socket from the app's environment, for rigs in different slots).
+	"$out/g7sim/simulator/build-impossible.sh" "$out/impossible" >/dev/null
+	for patch in "$here"/impossible-patches/*.patch; do git -C "$out/impossible/ImpossiBLE" apply "$patch"; done
+	build_impossible iphonesimulator arm64-apple-ios15.0-simulator libImpossiBLE.dylib
+	build_impossible watchsimulator arm64-apple-watchos10.0-simulator libImpossiBLE-watch.dylib
+	echo "built ImpossiBLE (iOS, watchOS)"
 	build_link iphonesimulator arm64-apple-ios15.0-simulator libSimLink-ios.dylib
 	build_link watchsimulator arm64-apple-watchos10.0-simulator libSimLink-watch.dylib
 	go -C "$out/pod" build -o "$out/pod-sim" . && echo "built pod-sim"
@@ -121,15 +130,20 @@ sims() {
 	echo "phone $p, watch $w (saved in $(basename "$sims_file"))"
 }
 
-started() { pgrep -f "$out/$1 " >/dev/null 2>&1; }
+# Whether this slot's copy of a simulator or the mux runs: each is told by its API port.
+started() {
+	case "$1" in pod-sim) api=$POD_API ;; g7-sim) api=$G7_API ;; impossible-mux) api=$MUX_API ;; esac
+	pgrep -f "$out/$1 .*-api $api( |\$)" >/dev/null 2>&1
+}
+active_file=$out/active-rig; [ "$SLOT" = 0 ] || active_file=$out/active-rig-$SLOT
 
 start() {
-	# The simulators serve one rig at a time.
-	active=$(cat "$out/active-rig" 2>/dev/null || true)
+	# A slot's simulators serve one rig at a time.
+	active=$(cat "$active_file" 2>/dev/null || true)
 	if [ "${active:-bench}" != "${RIG:-bench}" ] && { started pod-sim || started g7-sim || started impossible-mux; }; then
-		echo "the ${active:-bench} rig's simulators are running: 'sim.sh stop' first" >&2; exit 2
+		echo "the ${active:-bench} rig's simulators are running in slot $SLOT: 'sim.sh stop' first" >&2; exit 2
 	fi
-	mkdir -p "$out"; echo "${RIG:-bench}" >"$out/active-rig"
+	mkdir -p "$out"; echo "${RIG:-bench}" >"$active_file"
 	fresh=${1:-}
 	podfresh=$fresh; [ "$fresh" = -fresh-pod ] && { fresh=; podfresh=-fresh; }
 	mkdir -p "$run"
@@ -153,15 +167,18 @@ start() {
 	# The mux refuses the socket if another provider (ImpossiBLE's menu bar app?) holds it; its log says.
 	# A radio takes time to bring a link up; at once, an app that launches beside its pod connects
 	# before it has finished starting.
-	started impossible-mux || { nohup "$out/impossible-mux" -api $MUX_API -connect-delay "${CONNECT_DELAY:-1500ms}" $G7_SOCK $POD_SOCK >"$run/mux.log" 2>&1 & }
+	started impossible-mux || { nohup "$out/impossible-mux" -api $MUX_API -socket $APP_SOCK -connect-delay "${CONNECT_DELAY:-1500ms}" $G7_SOCK $POD_SOCK >"$run/mux.log" 2>&1 & }
 	sleep 1
 	status
 	started impossible-mux || { tail -2 "$run/mux.log"; exit 1; }
 }
 
 stop() {
-	for p in impossible-mux pod-sim g7-sim; do pkill -f "$out/$p " 2>/dev/null && echo "stopped $p" || true; done
-	rm -f /tmp/impossible.sock $POD_SOCK $G7_SOCK
+	for p in impossible-mux pod-sim g7-sim; do
+		case "$p" in pod-sim) api=$POD_API ;; g7-sim) api=$G7_API ;; impossible-mux) api=$MUX_API ;; esac
+		pkill -f "$out/$p .*-api $api( |\$)" 2>/dev/null && echo "stopped $p" || true
+	done
+	rm -f $APP_SOCK $POD_SOCK $G7_SOCK
 }
 
 status() {
@@ -202,7 +219,8 @@ launch() {
 	xcrun simctl terminate "$dev" "$id" 2>/dev/null || true
 	[ "$1" = phone ] && keep_phone_log
 	scale=${TIME_SCALE:-$(cat "$run/time-scale" 2>/dev/null || echo 1)}
-	SIMCTL_CHILD_DYLD_INSERT_LIBRARIES=$lib SIMCTL_CHILD_SIMLINK_FILE=$LINK SIMCTL_CHILD_SIMLINK_QUEUE=$SIMLINK_QUEUE \
+	SIMCTL_CHILD_DYLD_INSERT_LIBRARIES=$lib SIMCTL_CHILD_IMPOSSIBLE_SOCKET=$APP_SOCK \
+		SIMCTL_CHILD_SIMLINK_FILE=$LINK SIMCTL_CHILD_SIMLINK_QUEUE=$SIMLINK_QUEUE \
 		SIMCTL_CHILD_SPORTMODE_TIME_SCALE=$scale xcrun simctl launch "$dev" "$id"
 }
 
@@ -284,7 +302,7 @@ watch() {
 	case "$1" in
 	off) xcrun simctl shutdown "$WATCH"; mkdir -p "$run"; touch "$run/watch-off"; link
 		# A UI driver on the watch ends with it; ui.sh attaches a new one at its next command.
-		[ -f /tmp/sportmode-ui/watch.pid ] && kill "$(cat /tmp/sportmode-ui/watch.pid)" 2>/dev/null || true ;;
+		[ -f "$SPORTMODE_UI/watch.pid" ] && kill "$(cat "$SPORTMODE_UI/watch.pid")" 2>/dev/null || true ;;
 	# The link comes up with the watch app, not with the watch: the paired Simulators accept a live
 	# message for an app not yet running and lose it, where a device would fail it to the queue.
 	# The relay keys a watch app's range on the name its Bluetooth client registers: the extension's on

@@ -1,0 +1,51 @@
+From d6791ce390db75c384e4a48f3e89660454ae8f05 Mon Sep 17 00:00:00 2001
+From: Jeremy Barnum <prefer not to supply>
+Date: Sat, 24 Oct 2026 01:41:08 -0400
+Subject: [PATCH] The provider's socket from the app's environment
+
+IMPOSSIBLE_SOCKET names the socket the library connects to, so apps in
+different Simulators can each have their own provider; without it the
+library uses /tmp/impossible.sock as before.
+---
+ Sources/ImpossiBLE/CBSConnection.m | 11 ++++++++---
+ 1 file changed, 8 insertions(+), 3 deletions(-)
+
+diff --git a/Sources/ImpossiBLE/CBSConnection.m b/Sources/ImpossiBLE/CBSConnection.m
+index ba82a77..563020b 100644
+--- a/Sources/ImpossiBLE/CBSConnection.m
++++ b/Sources/ImpossiBLE/CBSConnection.m
+@@ -5,7 +5,12 @@
+ 
+ #if TARGET_OS_SIMULATOR
+ 
+-static const char *kCBSSocketPath = "/tmp/impossible.sock";
++// The provider's socket: IMPOSSIBLE_SOCKET in the app's environment, so apps in different
++// Simulators can each have their own provider; /tmp/impossible.sock without it.
++static const char *cbs_socket_path(void) {
++    const char *path = getenv("IMPOSSIBLE_SOCKET");
++    return (path && path[0]) ? path : "/tmp/impossible.sock";
++}
+ // Reported to the provider in the hello handshake so version skew between the
+ // linked library and the installed provider is diagnosable instead of silent.
+ // Keep in sync with the release version (see the release checklist in AGENTS.md).
+@@ -138,7 +143,7 @@ static int cbs_try_connect(void) {
+     struct sockaddr_un addr;
+     memset(&addr, 0, sizeof(addr));
+     addr.sun_family = AF_UNIX;
+-    strncpy(addr.sun_path, kCBSSocketPath, sizeof(addr.sun_path) - 1);
++    strncpy(addr.sun_path, cbs_socket_path(), sizeof(addr.sun_path) - 1);
+ 
+     int fd = socket(AF_UNIX, SOCK_STREAM, 0);
+     if (fd < 0) {
+@@ -171,7 +176,7 @@ static int cbs_connect(void) {
+             usleep(200000);
+         }
+     }
+-    NSLog(@"ImpossiBLE: connect(%s) failed after retries", kCBSSocketPath);
++    NSLog(@"ImpossiBLE: connect(%s) failed after retries", cbs_socket_path());
+     cbs_schedule_reconnect();
+     return -1;
+ }
+-- 
+2.54.0 (Apple Git-157)
+

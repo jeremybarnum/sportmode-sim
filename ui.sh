@@ -16,7 +16,7 @@ set -eu
 here=$(cd "$(dirname "$0")" && pwd)
 SIM_SOURCED=1 . "$here/sim.sh"
 dd=$here/build/ui-dd
-q=/tmp/sportmode-ui
+q=$SPORTMODE_UI   # the rig's own (rig.sh), passed to the drivers
 
 build() {
 	command -v xcodegen >/dev/null || { echo "needs xcodegen (brew install xcodegen)" >&2; exit 2; }
@@ -41,7 +41,7 @@ start() { # side
 	# Booted here, not by xcodebuild: xcodebuild shuts down a Simulator it booted when its run
 	# ends, and a run ends the drivers with itself.
 	xcrun simctl bootstatus "$dev" -b >/dev/null 2>&1 || true
-	nohup xcodebuild test-without-building -xctestrun "$run" -destination "id=$dev" \
+	TEST_RUNNER_SPORTMODE_UI_DIR=$q nohup xcodebuild test-without-building -xctestrun "$run" -destination "id=$dev" \
 		>"$out/ui-$1.log" 2>&1 &
 	echo $! >"$q/$1.pid"
 	i=0; until [ -f "$q/$1.ready" ]; do

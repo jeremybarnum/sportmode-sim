@@ -57,7 +57,7 @@ WATCH_MAIN_PAGE=${WATCH_MAIN_PAGE:-3}
 watch_page() { # n
 	local page
 	ui watch tree
-	page=$(grep -o "page [0-9]* of [0-9]*" /tmp/sportmode-ui/watch.tree | head -1 | cut -d' ' -f2)
+	page=$(grep -o "page [0-9]* of [0-9]*" "$SPORTMODE_UI"/watch.tree | head -1 | cut -d' ' -f2)
 	[ -n "$page" ] || return 0
 	while [ "$page" -lt "$1" ]; do ui watch swipe left; page=$((page + 1)); done
 	while [ "$page" -gt "$1" ]; do ui watch swipe right; page=$((page - 1)); done
@@ -177,6 +177,7 @@ running() { # phone|watch
 	[ -n "$p" ] && ps -wwE -p "$p" -o command= | grep -q DYLD_INSERT_LIBRARIES
 }
 . "$root/.sims${RIG:+-$RIG}" 2>/dev/null || true
+. "$root/rig.sh"
 PHONE_SIM_ID=${PHONE_SIM:-${SIMS_PHONE:-}}
 WATCH_SIM_ID=${WATCH_SIM:-${SIMS_WATCH:-}}
 
@@ -267,7 +268,7 @@ watch_bolus() { # units (a multiple of 0.5)
 	while [ "$n" -gt 0 ]; do ui watch tap "+"; n=$((n - 1)); done
 	ui watch tree
 	# The amount is the number just before the "U" beside it.
-	shown=$(awk "/label: 'U'\$/ { print prev } { if (match(\$0, /label: '[0-9.]+'/)) prev = substr(\$0, RSTART + 8, RLENGTH - 9) }" /tmp/sportmode-ui/watch.tree | head -1)
+	shown=$(awk "/label: 'U'\$/ { print prev } { if (match(\$0, /label: '[0-9.]+'/)) prev = substr(\$0, RSTART + 8, RLENGTH - 9) }" "$SPORTMODE_UI"/watch.tree | head -1)
 	say "watch bolus screen shows ${shown:-?} U"
 	t0=$(now)
 	ui watch tap Bolus
@@ -329,7 +330,7 @@ phone_bolus() { # units
 		sleep 1
 		"$UI" phone type "$1" >/dev/null 2>&1 || true
 		"$UI" phone tree >/dev/null 2>&1
-		grep -q "TextField.*value: $1\b" /tmp/sportmode-ui/phone.tree && break
+		grep -q "TextField.*value: $1\b" "$SPORTMODE_UI"/phone.tree && break
 		[ "$i" = 2 ] && abort "the bolus amount did not go into the field"
 		say "the amount did not go in; entering it again"
 	done
@@ -465,14 +466,14 @@ phone_home() {
 dismiss_alert() {
 	local b pid
 	"$UI" phone tree >/dev/null 2>&1 || return 0
-	if grep -q "Alert," /tmp/sportmode-ui/phone.tree; then
+	if grep -q "Alert," "$SPORTMODE_UI"/phone.tree; then
 		for b in Close OK Dismiss; do shows phone "$b" && { "$UI" phone tap "$b" >/dev/null 2>&1; return 0; }; done
 	fi
 	# Newer builds put "Turn On Alarms" where the element tree does not reach. It comes up only
 	# with the "Alarms are turned OFF" banner, once per launch of the app: tap where its Close is
 	# once, and if nothing was there, the tap opened the insulin chart under it: go back.
-	grep -q "Alarms are turned OFF" /tmp/sportmode-ui/phone.tree || return 0
-	pid=$(grep -o "pid: [0-9]*" /tmp/sportmode-ui/phone.tree | head -1)
+	grep -q "Alarms are turned OFF" "$SPORTMODE_UI"/phone.tree || return 0
+	pid=$(grep -o "pid: [0-9]*" "$SPORTMODE_UI"/phone.tree | head -1)
 	[ "$pid" = "$(cat "$RUN/alarms-closed" 2>/dev/null)" ] && return 0
 	echo "$pid" >"$RUN/alarms-closed"
 	"$UI" phone tapxy 127 565 >/dev/null 2>&1

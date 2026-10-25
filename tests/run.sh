@@ -4,9 +4,11 @@
 # is printed at the end and kept in summary.txt. The simulators and both apps must be running (sim.sh start, launch).
 set -u
 here=$(cd "$(dirname "$0")" && pwd)
-# One run at a time: two share one tap driver, one mux and one Simulator pair, and corrupt each
-# other. The lock names the run's process; a lock whose process is gone is stale and taken over.
-lock=$here/../build/run/run.lock
+# One run at a time in a slot: two share one tap driver, one mux and one Simulator pair, and corrupt
+# each other. Rigs in different slots (SLOT=<n> in their .sims-<rig>) run side by side. The lock names
+# the run's process; a lock whose process is gone is stale and taken over.
+SLOT=$(sed -n 's/^SLOT=//p' "$here/../.sims${RIG:+-$RIG}" 2>/dev/null | tail -1)
+lock=$here/../build/run/run.lock; [ "${SLOT:-0}" = 0 ] || lock=$here/../build/run/run-slot$SLOT.lock
 mkdir -p "$(dirname "$lock")"
 if [ -f "$lock" ] && kill -0 "$(cat "$lock" 2>/dev/null)" 2>/dev/null; then
 	echo "another run is active (pid $(cat "$lock")): wait for it, or stop it" >&2; exit 2
@@ -18,7 +20,7 @@ trap 'rm -f "$lock"; "$here/../ui.sh" stop phone 2>/dev/null; "$here/../ui.sh" s
 tests=${TESTS_DIR:-$here}
 dir=$here/../build/results/${RIG:+$RIG-}$(date +%Y%m%d-%H%M%S)
 mkdir -p "$dir"
-[ $# -gt 0 ] || set -- $(ls "$tests" | sed -n 's/^\([A-Z][0-9]*\)\.sh$/\1/p' | sort -k 1.2 -n)
+[ $# -gt 0 ] || set -- $(ls "$tests" | sed -n 's/^\([A-Z][A-Z0-9]*[a-z]*\)\.sh$/\1/p' | sort -k 1.2 -n)
 # quick: a check between review rounds, the full run stays the gate. T1 an ordinary loan (takeover,
 # records, hand-back, audit), T5 a take-back (settle, verification, stop), T13 an offline start
 # whose take stalls (escalation). Tests named after it run too: quick T22.

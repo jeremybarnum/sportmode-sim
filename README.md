@@ -135,6 +135,19 @@ answer waits and bolus delivery, which are real. The scale needs a Loop built fr
 scale for a sensor's whole life: restarting the sensor simulator at another interval re-indexes
 its readings.
 
+## Two rigs at once
+
+Rigs run side by side when they are in different slots: `SLOT=1` in a second rig's `.sims-<rig>`
+gives it its own sockets, SimLink files and tap-driver folder under `/tmp/sportmode-1`, and ports
+8097–8099 (`rig.sh`). Slot 0, the default, keeps a single rig's `/tmp` paths and ports 8087–8089. The
+apps' Bluetooth stand-in finds its rig's mux through `IMPOSSIBLE_SOCKET`, which `sim.sh launch` sets
+(the library reads it with this repository's patch in `impossible-patches`; `./sim.sh build` applies
+it). A second rig needs its own Simulator pair and onboarding (`RIG=<it> ./sim.sh sims`, `install`,
+`start`, `launch`), and the tap drivers rebuilt once (`./ui.sh build`) to read their folder from
+`ui.sh`. Long tests suit it best, since they mostly wait: run them there while the other rig runs the
+rest. Both rigs load the Mac; WatchConnectivity in the Simulators slows under heavy load, so check
+`uptime` and rerun a timing failure once.
+
 ## Bluetooth timing
 
 Each Bluetooth connect takes 1.5 s, as over a radio (`CONNECT_DELAY` at `start`, `0` for at once): at once,

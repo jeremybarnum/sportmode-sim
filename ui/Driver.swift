@@ -1,6 +1,6 @@
 // A UI test that serves commands for one app instead of running a script: it attaches to the app
 // already running (launched by sim.sh with the Bluetooth shim injected) and, until told to quit,
-// reads a command from /tmp/sportmode-ui/<side>.cmd, carries it out and writes the result to
+// reads a command from <side>.cmd in the rig's folder (/tmp/sportmode-ui for a single rig), carries it out and writes the result to
 // <side>.out. The bundle id of the app to drive is in <side>.app.
 //
 //   tap <label>          tap the button (or else any element) with that label or identifier
@@ -33,7 +33,8 @@ final class Driver: XCTestCase {
     #else
     let side = "phone"
     #endif
-    let dir = URL(fileURLWithPath: "/tmp/sportmode-ui")
+    // The rig's folder, from ui.sh (TEST_RUNNER_SPORTMODE_UI_DIR); a single rig's by default.
+    let dir = URL(fileURLWithPath: ProcessInfo.processInfo.environment["SPORTMODE_UI_DIR"] ?? "/tmp/sportmode-ui")
     let timeout: TimeInterval = 10
 
     func testServe() throws {
