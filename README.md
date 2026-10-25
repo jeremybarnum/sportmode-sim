@@ -144,7 +144,8 @@ apps' Bluetooth stand-in finds its rig's mux through `IMPOSSIBLE_SOCKET`, which 
 (the library reads it with this repository's patch in `impossible-patches`; `./sim.sh build` applies
 it). A second rig needs its own Simulator pair and onboarding (`RIG=<it> ./sim.sh sims`, `install`,
 `start`, `launch`), and the tap drivers rebuilt once (`./ui.sh build`) to read their folder from
-`ui.sh`. Long tests suit it best, since they mostly wait: run them there while the other rig runs the
+`ui.sh`. A rig can use another's app build instead of its own: `APPS=<this folder>/build/dd/Build/Products`
+in its `.sims-<rig>`. Long tests suit it best, since they mostly wait: run them there while the other rig runs the
 rest. Both rigs load the Mac; WatchConnectivity in the Simulators slows under heavy load, so check
 `uptime` and rerun a timing failure once.
 
