@@ -42,10 +42,10 @@ start() { # side
 	# ends, and a run ends the drivers with itself.
 	xcrun simctl bootstatus "$dev" -b >/dev/null 2>&1 || true
 	TEST_RUNNER_SPORTMODE_UI_DIR=$q nohup xcodebuild test-without-building -xctestrun "$run" -destination "id=$dev" \
-		>"$out/ui-$1.log" 2>&1 &
+		>"$out/ui-${RIG:+$RIG-}$1.log" 2>&1 &
 	echo $! >"$q/$1.pid"
 	i=0; until [ -f "$q/$1.ready" ]; do
-		i=$((i + 1)); [ $i -gt 600 ] && { echo "$1 driver did not attach; see $out/ui-$1.log" >&2; exit 1; }
+		i=$((i + 1)); [ $i -gt 600 ] && { echo "$1 driver did not attach; see $out/ui-${RIG:+$RIG-}$1.log" >&2; exit 1; }
 		sleep 0.2
 	done
 	cut -d' ' -f2- "$q/$1.ready"
@@ -70,7 +70,7 @@ send() { # side command...
 	# A driver ends when a step fails inside XCTest (an element gone mid-tap): attach a new one.
 	alive "$side" || {
 		[ -f "$q/$side.app" ] || { echo "no $side driver: ui.sh start $side" >&2; return 1; }
-		grep -m1 " error: " "$out/ui-$side.log" 2>/dev/null | sed 's/.*error: [^:]*: /last driver ended: /' >&2 || true
+		grep -m1 " error: " "$out/ui-${RIG:+$RIG-}$side.log" 2>/dev/null | sed 's/.*error: [^:]*: /last driver ended: /' >&2 || true
 		start "$side" >/dev/null
 	}
 	n=$(date +%s)$$
