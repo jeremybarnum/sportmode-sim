@@ -1,6 +1,6 @@
 #!/bin/sh
 # Runs bench test scripts one after another, unattended: tests/run.sh T1 T3 (no argument: all of
-# them; quick: T1 T5 T13, below). Each test's output goes to build/results/<run>/<test>.log; a summary
+# them; fast (or quick), safety, validation: the tiers in TESTS.md). Each test's output goes to build/results/<run>/<test>.log; a summary
 # is printed at the end and kept in summary.txt. The simulators and both apps must be running (sim.sh start, launch).
 set -u
 here=$(cd "$(dirname "$0")" && pwd)
@@ -22,7 +22,12 @@ mkdir -p "$dir"
 # quick: a check between review rounds, the full run stays the gate. T1 an ordinary loan (takeover,
 # records, hand-back, audit), T5 a take-back (settle, verification, stop), T13 an offline start
 # whose take stalls (escalation). Tests named after it run too: quick T22.
-[ "$1" = quick ] && { shift; set -- T1 T5 T13 "$@"; }
+# The tiers are in TESTS.md: fast (quick), safety, validation.
+case "${1:-}" in
+quick|fast) shift; set -- T1 T5 T13 "$@" ;;
+safety) shift; set -- T4 T7 T16 T17 T19 T22 T23 "$@" ;;
+validation) shift; set -- T3 T6 T8 T10 T11 T18 "$@" ;;
+esac
 for t in "$@"; do
 	printf '%s  %s ...\n' "$(date +%T)" "$t"
 	if "$tests/$t.sh" >"$dir/$t.log" 2>&1; then r=PASS; else r=FAIL; fi
