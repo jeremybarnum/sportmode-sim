@@ -287,8 +287,11 @@ watch() {
 		[ -f /tmp/sportmode-ui/watch.pid ] && kill "$(cat /tmp/sportmode-ui/watch.pid)" 2>/dev/null || true ;;
 	# The link comes up with the watch app, not with the watch: the paired Simulators accept a live
 	# message for an app not yet running and lose it, where a device would fail it to the queue.
-	away) mkdir -p "$run"; touch "$run/watch-away"; range app "$WATCH_ID.watchkitextension" 0 ;;
-	back) rm -f "$run/watch-away"; range app "$WATCH_ID.watchkitextension" 1 ;;
+	# The relay keys a watch app's range on the name its Bluetooth client registers: the extension's on
+	# an extension-based watch app (production), the app's own on a single-target one (next-dev). Both
+	# are set; the one the relay does not know matches nothing.
+	away) mkdir -p "$run"; touch "$run/watch-away"; range app "$WATCH_ID" 0; range app "$WATCH_ID.watchkitextension" 0 ;;
+	back) rm -f "$run/watch-away"; range app "$WATCH_ID" 1; range app "$WATCH_ID.watchkitextension" 1 ;;
 	on) xcrun simctl boot "$WATCH" 2>/dev/null || true
 		xcrun simctl bootstatus "$WATCH" -b >/dev/null; launch watch; rm -f "$run/watch-off"; link
 		# After the watch Simulator reboots, the phone app's queued transfers from the watch stop
