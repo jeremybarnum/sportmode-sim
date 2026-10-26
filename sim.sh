@@ -141,6 +141,18 @@ started() {
 binary() { case "$1" in pod-sim) echo "$POD_SIM" ;; *) echo "$out/$1" ;; esac; }
 active_file=$out/active-rig; [ "$SLOT" = 0 ] || active_file=$out/active-rig-$SLOT
 
+# Whether the slot's ports are free of simulators this checkout did not start: another checkout's rig
+# in the same slot shares its ports and sockets, and `started` cannot see it.
+slot_free() {
+	for p in pod-sim:$POD_API g7-sim:$G7_API impossible-mux:$MUX_API; do
+		started "${p%%:*}" && continue
+		if lsof -nP -iTCP"${p#*:}" -sTCP:LISTEN >/dev/null 2>&1; then
+			echo "port ${p#*::} of slot $SLOT is held by a rig this checkout did not start ($(lsof -nP -iTCP"${p#*:}" -sTCP:LISTEN -Fn -Fp 2>/dev/null | sed -n 's/^p//p' | head -1 | xargs -I{} ps -o command= -p {} | cut -c1-80)): use another SLOT, or stop that rig" >&2
+			return 1
+		fi
+	done
+}
+
 # A simulator's earlier log is kept beside the new one when it starts, the five newest of each, so a
 # run's evidence survives the next start.
 keep_log() { # pod|g7|mux
@@ -155,6 +167,7 @@ start() {
 	if [ "${active:-bench}" != "${RIG:-bench}" ] && { started pod-sim || started g7-sim || started impossible-mux; }; then
 		echo "the ${active:-bench} rig's simulators are running in slot $SLOT: 'sim.sh stop' first" >&2; exit 2
 	fi
+	slot_free || exit 2
 	mkdir -p "$out"; echo "${RIG:-bench}" >"$active_file"
 	fresh=${1:-}
 	podfresh=$fresh; [ "$fresh" = -fresh-pod ] && { fresh=; podfresh=-fresh; }

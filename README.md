@@ -150,7 +150,8 @@ it). A second rig needs its own Simulator pair and onboarding (`RIG=<it> ./sim.s
 `ui.sh`. A rig can use another's app build instead of its own: `APPS=<this folder>/build/dd/Build/Products`
 in its `.sims-<rig>`. Long tests suit it best, since they mostly wait: run them there while the other rig runs the
 rest. Both rigs load the Mac; WatchConnectivity in the Simulators slows under heavy load, so check
-`uptime` and rerun a timing failure once.
+`uptime` and rerun a timing failure once. Rigs of different checkouts share the slots too: `start`
+refuses a slot whose ports another checkout's rig already holds, and names it.
 
 ## Bluetooth timing
 
