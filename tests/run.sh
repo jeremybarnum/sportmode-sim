@@ -1,6 +1,7 @@
 #!/bin/sh
 # Runs bench test scripts one after another, unattended: tests/run.sh T1 T3 (no argument: all of
-# them; fast (or quick), safety, validation: the tiers in TESTS.md). Each test's output goes to build/results/<run>/<test>.log; a summary
+# them; fast (or quick), safety, validation: the tiers in TESTS.md). Each test's output goes to build/results/<run>/<test>.log,
+# and its stretch of the apps' and simulators' logs to <run>/<test>/; a summary
 # is printed at the end and kept in summary.txt. The simulators and both apps must be running (sim.sh start, launch).
 set -u
 here=$(cd "$(dirname "$0")" && pwd)
@@ -30,9 +31,27 @@ quick|fast) shift; set -- T1 T5 T13 "$@" ;;
 safety) shift; set -- T4 T7 T16 T17 T19 T22 T23 "$@" ;;
 validation) shift; set -- T3 T6 T8 T10 T11 T18 "$@" ;;
 esac
+# Each test's own stretch of the apps' and the simulators' logs is kept with its result, in <test>/: the
+# apps' logs roll over and a start replaces the simulators', so a failure's evidence would not last.
+sims=$here/../build/run${RIG:+-$RIG}
+size() { wc -c <"$sims/$1.log" 2>/dev/null | tr -d ' ' || echo 0; }
+keep_logs() { # test since offsets(pod g7 mux)
+	local t=$1 since=$2 o
+	mkdir -p "$dir/$t"
+	for side in phone watch; do "$here/../sim.sh" since "$side" "$since" >"$dir/$t/$side.log" 2>/dev/null || true; done
+	shift 2
+	for sim in pod g7 mux; do
+		# A log replaced during the test (a restart) is kept whole.
+		o=$1; shift
+		[ "$(size $sim)" -ge "$o" ] 2>/dev/null || o=0
+		tail -c +$((o + 1)) "$sims/$sim.log" >"$dir/$t/$sim.log" 2>/dev/null || true
+	done
+}
 for t in "$@"; do
-	printf '%s  %s ...\n' "$(date +%T)" "$t"
+	since=$(date +%T); offsets="$(size pod) $(size g7) $(size mux)"
+	printf '%s  %s ...\n' "$since" "$t"
 	if "$tests/$t.sh" >"$dir/$t.log" 2>&1; then r=PASS; else r=FAIL; fi
+	keep_logs "$t" "$since" $offsets
 	printf '%s  %s %s\n' "$(date +%T)" "$t" "$r" | tee -a "$dir/summary.txt"
 done
 echo "logs: $dir"

@@ -81,6 +81,9 @@ for the watch to read the sensor. A bolus on the phone asks the Simulator's pass
 
 Logs: `log phone|watch|pod|g7|mux [lines]`, `since phone|watch HH:MM:SS [regex]`, and
 `./check.sh T<n> HH:MM:SS` for a test's lines. `MUX_TRACE=1 ./sim.sh start` logs every request.
+They read a shut-down Simulator's app logs too. `start` keeps each simulator's earlier log beside the
+new one (`pod-<time>.log`, the five newest), and `tests/run.sh` keeps each test's stretch of all five
+logs in `build/results/<run>/<test>/`, since the apps' own logs roll over.
 
 ## Taps without a person (trial)
 

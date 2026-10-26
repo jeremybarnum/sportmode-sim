@@ -137,6 +137,14 @@ started() {
 }
 active_file=$out/active-rig; [ "$SLOT" = 0 ] || active_file=$out/active-rig-$SLOT
 
+# A simulator's earlier log is kept beside the new one when it starts, the five newest of each, so a
+# run's evidence survives the next start.
+keep_log() { # pod|g7|mux
+	[ -s "$run/$1.log" ] || return 0
+	mv "$run/$1.log" "$run/$1-$(date +%Y%m%d-%H%M%S).log"
+	ls -t "$run/$1"-2*.log 2>/dev/null | tail -n +6 | while read -r f; do rm -f "$f"; done
+}
+
 start() {
 	# A slot's simulators serve one rig at a time.
 	active=$(cat "$active_file" 2>/dev/null || true)
@@ -156,18 +164,18 @@ start() {
 		echo "time scale $was → $scale: a new sensor"; fresh=-fresh
 	fi
 	interval=; [ "$scale" -gt 1 ] 2>/dev/null && interval="-interval $((300 / scale))s"
-	started pod-sim || { nohup "$out/pod-sim" -transport impossible -socket $POD_SOCK -api $POD_API \
+	started pod-sim || { keep_log pod; nohup "$out/pod-sim" -transport impossible -socket $POD_SOCK -api $POD_API \
 		-state "$run/pod-state.toml" ${podfresh:+-fresh} >"$run/pod.log" 2>&1 & }
 	# The stand-in sensor G7SensorKit offers in the Simulator, so "scan" and manual entry both find it.
 	# In a subshell for its working directory, which exec hands to the simulator, so nothing is left
 	# holding the terminal.
-	started g7-sim || { (cd "$run" && exec nohup "$out/g7-sim" -transport impossible -socket $G7_SOCK -api $G7_API \
+	started g7-sim || { keep_log g7; (cd "$run" && exec nohup "$out/g7-sim" -transport impossible -socket $G7_SOCK -api $G7_API \
 		$interval ${DEXCOM_APP:+-dexcom-app} ${fresh:+-fresh -code 4321 -serial 7810293746}) >"$run/g7.log" 2>&1 </dev/null & }
 	sleep 1
 	# The mux refuses the socket if another provider (ImpossiBLE's menu bar app?) holds it; its log says.
 	# A radio takes time to bring a link up; at once, an app that launches beside its pod connects
 	# before it has finished starting.
-	started impossible-mux || { nohup "$out/impossible-mux" -api $MUX_API -socket $APP_SOCK -connect-delay "${CONNECT_DELAY:-1500ms}" $G7_SOCK $POD_SOCK >"$run/mux.log" 2>&1 & }
+	started impossible-mux || { keep_log mux; nohup "$out/impossible-mux" -api $MUX_API -socket $APP_SOCK -connect-delay "${CONNECT_DELAY:-1500ms}" $G7_SOCK $POD_SOCK >"$run/mux.log" 2>&1 & }
 	sleep 1
 	status
 	started impossible-mux || { tail -2 "$run/mux.log"; exit 1; }
@@ -216,6 +224,8 @@ launch() {
 	watch) dev=$WATCH; id=$WATCH_ID; lib=$out/impossible/libImpossiBLE-watch.dylib:$out/libSimLink-watch.dylib ;;
 	*) echo "launch phone|watch" >&2; exit 2 ;;
 	esac
+	# A Simulator that is shut down (a Mac restart, or a driver that booted it and ended) boots first.
+	xcrun simctl bootstatus "$dev" -b >/dev/null 2>&1 || true
 	xcrun simctl terminate "$dev" "$id" 2>/dev/null || true
 	[ "$1" = phone ] && keep_phone_log
 	scale=${TIME_SCALE:-$(cat "$run/time-scale" 2>/dev/null || echo 1)}
@@ -319,19 +329,27 @@ watch() {
 	esac
 }
 
+# An app's data container: from simctl while its Simulator runs, else found on disk by its bundle id,
+# so the logs of a Simulator that is shut down can still be read.
+container() { # device bundle-id
+	[ -n "$2" ] || return 1
+	xcrun simctl get_app_container "$1" "$2" data 2>/dev/null && return 0
+	for d in "$HOME/Library/Developer/CoreSimulator/Devices/$1/data/Containers/Data"/*/*; do
+		[ "$(plutil -extract MCMMetadataIdentifier raw "$d/.com.apple.mobile_container_manager.metadata.plist" 2>/dev/null)" = "$2" ] \
+			&& { echo "$d"; return 0; }
+	done
+	return 1
+}
+
 # Sport Mode's own log files in each app's Documents.
 applog() { # phone|watch
 	case "$1" in
-	phone) c=$(xcrun simctl get_app_container "$PHONE" "$PHONE_ID" data); echo "$c/Documents/g7phone-latest.log" ;;
+	phone) echo "$(container "$PHONE" "$PHONE_ID")/Documents/g7phone-latest.log" ;;
 	watch)
-		c=$(xcrun simctl get_app_container "$WATCH" "$WATCH_ID" data); f=$c/Documents/g7watch.log
 		# A WatchKit extension keeps its own container, beside the app's.
-		if [ ! -f "$f" ]; then
-			for d in "$(dirname "$c")"/../PluginKitPlugin/*; do
-				[ "$(plutil -extract MCMMetadataIdentifier raw "$d/.com.apple.mobile_container_manager.metadata.plist" 2>/dev/null)" = "$WATCH_ID.watchkitextension" ] \
-					&& { f=$d/Documents/g7watch.log; break; }
-			done
-		fi
+		for id in "$WATCH_ID" "$WATCH_ID.watchkitextension"; do
+			f=$(container "$WATCH" "$id")/Documents/g7watch.log; [ -f "$f" ] && break
+		done
 		echo "$f" ;;
 	esac
 }
