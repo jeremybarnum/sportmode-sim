@@ -32,6 +32,7 @@ sensor), **watch off** = `sim.sh watch off` (the watch shut down; `watch on` boo
 | T19 | A revived watch's claim to a loan older than the phone's takeover is refused | safety | resume, offline Start | Runs |
 | T22 | Start, End and Take Back during a bolus: refused until it ends | safety | Start, End, Take Back (nobody takes the pod mid-bolus) | Runs |
 | T23 | A watch bolus that reaches the phone after it handed the pod over: refused and not booked | safety | insulin booking | Runs |
+| T24 | A lost answer, then a start without the phone: back, the phone's pod driver drops the unconfirmed command at the resync and lets go; the bolus is booked once | safety | insulin booking, standing aside | Runs with a pod simulator that resyncs (LoopKit/pod#25, POD_SIM); not in a tier until the pinned one does |
 
 ## Tiers, and which tests cover what
 
@@ -49,7 +50,7 @@ mechanisms the change touches (`tests/run.sh fast T6 T8`). The tiers are run set
 | Start with the phone near (grant, takeover) | T1, and every test that starts a normal loan |
 | End on the watch (hand-back, insulin check) | T1, T18 |
 | Take Back on the phone | T3, T5, T16, T17 |
-| Nobody takes the pod mid-bolus (or with a command unconfirmed) | T22 |
+| Nobody takes the pod mid-bolus (or with a command unconfirmed) | T22, T24 |
 | Insulin booking (estimates, records replacing them) | T4, T7, T23 |
 | Offline Start | T6, T7, T10, T13, T19 |
 | The watch off or restarting, resume | T4, T8, T17, T19 |
