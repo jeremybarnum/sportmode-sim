@@ -54,6 +54,9 @@ G7SIM=https://github.com/jeremybarnum/g7sim; G7SIM_COMMIT=ee2a13b
 POD=https://github.com/jeremybarnum/pod;     POD_COMMIT=3823843
 
 [ -f "$sims_file" ] && . "$sims_file"
+# POD_SIM (in a rig's .sims): another pod simulator build for that rig, such as one with a change
+# proposed upstream; the others keep build/pod-sim.
+POD_SIM=${POD_SIM:-$out/pod-sim}
 PHONE=${PHONE_SIM:-${SIMS_PHONE:-}}
 WATCH=${WATCH_SIM:-${SIMS_WATCH:-}}
 APPS=${APPS:-$out/dd${RIG:+-$RIG}/Build/Products}
@@ -133,8 +136,9 @@ sims() {
 # Whether this slot's copy of a simulator or the mux runs: each is told by its API port.
 started() {
 	case "$1" in pod-sim) api=$POD_API ;; g7-sim) api=$G7_API ;; impossible-mux) api=$MUX_API ;; esac
-	pgrep -f "$out/$1 .*-api $api( |\$)" >/dev/null 2>&1
+	pgrep -f "$(binary $1) .*-api $api( |\$)" >/dev/null 2>&1
 }
+binary() { case "$1" in pod-sim) echo "$POD_SIM" ;; *) echo "$out/$1" ;; esac; }
 active_file=$out/active-rig; [ "$SLOT" = 0 ] || active_file=$out/active-rig-$SLOT
 
 # A simulator's earlier log is kept beside the new one when it starts, the five newest of each, so a
@@ -164,7 +168,7 @@ start() {
 		echo "time scale $was → $scale: a new sensor"; fresh=-fresh
 	fi
 	interval=; [ "$scale" -gt 1 ] 2>/dev/null && interval="-interval $((300 / scale))s"
-	started pod-sim || { keep_log pod; nohup "$out/pod-sim" -transport impossible -socket $POD_SOCK -api $POD_API \
+	started pod-sim || { keep_log pod; nohup "$POD_SIM" -transport impossible -socket $POD_SOCK -api $POD_API \
 		-state "$run/pod-state.toml" ${podfresh:+-fresh} >"$run/pod.log" 2>&1 & }
 	# The stand-in sensor G7SensorKit offers in the Simulator, so "scan" and manual entry both find it.
 	# In a subshell for its working directory, which exec hands to the simulator, so nothing is left
@@ -184,7 +188,7 @@ start() {
 stop() {
 	for p in impossible-mux pod-sim g7-sim; do
 		case "$p" in pod-sim) api=$POD_API ;; g7-sim) api=$G7_API ;; impossible-mux) api=$MUX_API ;; esac
-		pkill -f "$out/$p .*-api $api( |\$)" 2>/dev/null && echo "stopped $p" || true
+		pkill -f "$(binary $p) .*-api $api( |\$)" 2>/dev/null && echo "stopped $p" || true
 	done
 	rm -f $APP_SOCK $POD_SOCK $G7_SOCK
 }
