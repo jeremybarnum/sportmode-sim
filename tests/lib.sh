@@ -72,8 +72,16 @@ now() { date +%T; }
 
 # The watch app keeps the page it was left on; Sport Mode's controls are on the main page.
 WATCH_MAIN_PAGE=${WATCH_MAIN_PAGE:-3}
+# A notification in front of the watch app (a predicted low after earlier tests' boluses, a system
+# alert): dismiss it, or every tap that follows misses.
+dismiss_watch_alert() {
+	"$UI" watch sys 0 Dismiss >/dev/null 2>&1
+	return 0
+}
+
 watch_page() { # n
 	local page
+	dismiss_watch_alert
 	ui watch tree
 	page=$(grep -o "page [0-9]* of [0-9]*" "$SPORTMODE_UI"/watch.tree | head -1 | cut -d' ' -f2)
 	[ -n "$page" ] || return 0

@@ -18,7 +18,7 @@
 //   pressxy <x> <y> [s]  press and hold a point (default 2 s)
 //   swipeleft <text>     swipe left on the element whose label contains the text (a row's actions)
 //   crown <turns> [v]    turn the crown (watch); 1.0 is a full turn; v in turns per second
-//   sys <label>          tap a button of a system sheet or alert (phone)
+//   sys [s] <label>      tap a button the system draws over the app: an alert (phone), a notification (watch)
 //   systype <text>       type into a system sheet, such as the passcode (phone); \n for return
 //   tree                 the app's element tree, to <side>.tree
 //   quit                 end the test
@@ -166,14 +166,16 @@ final class Driver: XCTestCase {
             return (false, "phone only")
             #endif
         case "sys":
+            // A control the system draws over the app: an alert on the phone, a notification on the watch.
             #if os(iOS)
-            let springboard = XCUIApplication(bundleIdentifier: "com.apple.springboard")
-            guard let element = find(arg, contains: false, in: springboard, within: timeout) else { return (false, "no \(arg)") }
-            element.tap()
-            return (true, "tapped \(arg)")
+            let system = XCUIApplication(bundleIdentifier: "com.apple.springboard")
             #else
-            return (false, "phone only")
+            let system = XCUIApplication(bundleIdentifier: "com.apple.Carousel")
             #endif
+            let (seconds, label) = timed(arg)
+            guard let element = find(label, contains: false, in: system, within: seconds) else { return (false, "no \(label)") }
+            element.tap()
+            return (true, "tapped \(label)")
         case "tree":
             write("tree", app.debugDescription)
             return (true, "tree written")

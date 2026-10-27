@@ -33,8 +33,8 @@ expect phone "$off" 'take-back: pod link up' "phone reached the pod"
 # bolus and the residual is near zero) or not (then the residual books it): either way, delivered.
 l=$(lines phone "$off" 'take-back check: delivered' | tail -1)
 verdict_ok=$(echo "$l" | awk '{ d = 0; r = 9
-	if (match($0, /delivered=[0-9.]+/)) d = substr($0, RSTART + 10, RLENGTH - 10) + 0
-	if (match($0, /residual=[+-]?[0-9.]+/)) r = substr($0, RSTART + 9, RLENGTH - 9) + 0
+	if (match($0, /delivered[ =][0-9.]+/)) d = substr($0, RSTART + 10, RLENGTH - 10) + 0
+	if (match($0, /residual[ =][+-]?[0-9.]+/)) r = substr($0, RSTART + 9, RLENGTH - 9) + 0
 	if (d >= 0.45 && ((r >= -0.2 && r <= 0.2) || (r >= 0.3 && r <= 0.7))) print "yes" }')
 if [ "$verdict_ok" = yes ]; then pass "take-back accounted for the watch's bolus" "$l"
 else fail "take-back accounted for the watch's bolus" "${l:-no take-back check line}"; fi

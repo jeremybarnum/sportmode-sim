@@ -8,7 +8,7 @@
 #   ui.sh stop phone|watch
 #   ui.sh phone|watch <command>      tap <label> · tap~ <text> · wait <s> <label> · gone <s> <label>
 #                                    swipe left|right|up|down · type <text> · crown <turns>
-#                                    sys <label> · tree
+#                                    sys [s] <label> · tree
 #
 # Exits 1 when a command fails, so a test script can stop there.
 set -eu
