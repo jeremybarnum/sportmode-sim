@@ -76,6 +76,8 @@ watch_start_shown
 d2=$(pod_delivered)
 s2=$(now)
 ui watch tap "Start Sport Mode"
+# A tap just after the last loan's End can be missed: tap again once if the watch did not ask.
+logged_within watch "$s2" 'loan requested from the phone' 6 || ui watch tap "Start Sport Mode"
 watch_bolus_send 1
 b2=$s2
 wait_for phone "$s2" 'lending the pod to the watch' 60
