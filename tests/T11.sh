@@ -20,7 +20,12 @@ watch_page 2
 ui watch swipe up
 ui watch tap "ACTIVE CARBS"
 sleep 2
-ui watch swipe up
+# The newest row is the last one: scroll until it is on screen (earlier tests can leave more rows).
+for i in 1 2 3 4 5; do
+	ui watch swipe up
+	sleep 1
+	watch_labels | grep -q ', 13 g' && break
+done
 ui watch swipeleft ", 13 g"
 d=$(now)
 ui watch tap Delete
