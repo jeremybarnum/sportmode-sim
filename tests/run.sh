@@ -29,7 +29,7 @@ mkdir -p "$dir"
 case "${1:-}" in
 quick|fast) shift; set -- T1 T5 T13 "$@" ;;
 safety) shift; set -- T4 T7 T16 T17 T19 T22 T23 "$@" ;;
-validation) shift; set -- T3 T6 T8 T10 T11 T18 "$@" ;;
+validation) shift; set -- T3 T6 T8 T10 T11 T18 T25 "$@" ;;
 esac
 # Each test's own stretch of the apps' and the simulators' logs is kept with its result, in <test>/: the
 # apps' logs roll over and a start replaces the simulators', so a failure's evidence would not last.

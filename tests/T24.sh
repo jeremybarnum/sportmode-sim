@@ -12,24 +12,6 @@ TEST=T24
 . "$(dirname "$0")/lib.sh"
 set -u
 
-# The phone's system log since a time: the lines containing a text. The pod driver's own lines go
-# there, not to the app's log file.
-oslog() { # since text
-	xcrun simctl spawn "$PHONE_SIM_ID" log show --start "$(date +%F) $1" --style compact \
-		--predicate "process == \"Loop\" AND eventMessage CONTAINS \"$2\"" 2>/dev/null | grep -v '^Timestamp\|^ *Ty'
-}
-# Wait for such a line; prints it, or nothing after the seconds given.
-oslog_wait() { # since text seconds
-	local _end _l
-	_end=$(($(date +%s) + $3))
-	while :; do
-		_l=$(oslog "$1" "$2" | tail -1)
-		[ -n "$_l" ] && { echo "$_l"; return 0; }
-		[ "$(date +%s)" -ge "$_end" ] && return 0
-		sleep 5
-	done
-}
-
 say "$TEST — a lost answer, a start without the phone, the phone back"
 # Glucose near the target, so no automatic bolus is under way when the watch ends the loan.
 "$SIM" glucose 110 >/dev/null

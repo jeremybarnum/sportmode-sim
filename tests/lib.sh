@@ -33,6 +33,24 @@ ui() { out=$("$UI" "$@" 2>&1) || abort "$out"; }
 
 sim() { "$SIM" "$@" >/dev/null || abort "sim.sh $*"; }
 
+# The phone's system log since a time: the lines containing a text. The pod driver's own lines go
+# there, not to the app's log file.
+oslog() { # since text
+	xcrun simctl spawn "$PHONE_SIM_ID" log show --start "$(date +%F) $1" --style compact \
+		--predicate "process == \"Loop\" AND eventMessage CONTAINS \"$2\"" 2>/dev/null | grep -v '^Timestamp\|^ *Ty'
+}
+# Wait for such a line; prints it, or nothing after the seconds given.
+oslog_wait() { # since text seconds
+	local _end _l
+	_end=$(($(date +%s) + $3))
+	while :; do
+		_l=$(oslog "$1" "$2" | tail -1)
+		[ -n "$_l" ] && { echo "$_l"; return 0; }
+		[ "$(date +%s)" -ge "$_end" ] && return 0
+		sleep 5
+	done
+}
+
 # An app's log lines since a time (today), matching a regex.
 lines() { # side since regex
 	"$SIM" since "$1" "$2" "$3" 2>/dev/null
@@ -343,9 +361,22 @@ phone_bolus() { # units
 
 # Back to the starting point every test assumes: everything in range, both apps running, the
 # watch idle with Start on screen, the phone holding the pod.
+# The pod simulator stuck after a message out of sequence: its last word is the write error, and it
+# answers no one until restarted (seen after a test was cut off mid-command).
+pod_wedged() {
+	[ -f "$RUN/pod.log" ] || return 1
+	grep -E 'error writing message: expected command|EAP-AKA session SQN|Listening for commands' "$RUN/pod.log" \
+		| tail -1 | grep -q 'error writing message'
+}
+
 reset() {
 	local i t
 	say "Reset: everything in range, both apps up, no loan"
+	if pod_wedged; then
+		say "the pod simulator is stuck (a write out of sequence): restarting the simulators, the pod kept"
+		"$SIM" stop >/dev/null 2>&1; "$SIM" start >/dev/null 2>&1 || abort "sim.sh start"
+		"$SIM" launch phone >/dev/null; "$SIM" launch watch >/dev/null
+	fi
 	"$SIM" phone back >/dev/null 2>&1 || true
 	"$SIM" pod back >/dev/null 2>&1 || true
 	[ -e "$RUN/watch-away" ] && { "$SIM" watch back >/dev/null 2>&1 || true; }
@@ -359,6 +390,11 @@ reset() {
 	running phone || { say "the phone app is not running with the Bluetooth stand-in: launching it"; "$SIM" launch phone >/dev/null; }
 	running watch || { say "the watch app is not running with the Bluetooth stand-in: launching it"; "$SIM" launch watch >/dev/null; }
 	drivers
+	# A disrupted test can leave the pod driver's recovery page over the status screen.
+	if shows phone "Comms Recovered"; then
+		say "the phone shows the pod driver's Comms Recovered page: Continue"
+		ui phone tap Continue; sleep 1
+	fi
 	phone_home
 	watch_close_sheets
 	watch_main

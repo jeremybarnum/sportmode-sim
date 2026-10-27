@@ -32,7 +32,8 @@ sensor), **watch off** = `sim.sh watch off` (the watch shut down; `watch on` boo
 | T19 | A revived watch's claim to a loan older than the phone's takeover is refused | safety | resume, offline Start | Runs |
 | T22 | Start, End and Take Back during a bolus: refused until it ends | safety | Start, End, Take Back (nobody takes the pod mid-bolus) | Runs |
 | T23 | A watch bolus that reaches the phone after it handed the pod over: refused and not booked | safety | insulin booking | Runs |
-| T24 | A lost answer, then a start without the phone: back, the phone's pod driver drops the unconfirmed command at the resync and lets go; the bolus is booked once | safety | insulin booking, standing aside | Runs with a pod simulator that resyncs (LoopKit/pod#25, POD_SIM); not in a tier until the pinned one does |
+| T24 | A lost answer, then a start without the phone: back, the phone's pod driver drops the unconfirmed command at the resync and lets go; the bolus is booked once | safety | insulin booking, standing aside | Runs with a pod simulator that resyncs (LoopKit/pod#25, POD_SIM); not in a tier until the pinned one does; passes only when an incidental status read reaches the pod within 5 min of the phone's return (see `reference/handoff/NEXTDEV_HANDOFF.md`, finding of 10-26 night) |
+| T25 | A preset started on the watch during a loan, with the phone not told: the watch shows the one its loop doses with, through a relaunch; ended on the watch; the phone has both by the End | validation | presets during a loan, resume | Runs |
 
 ## Tiers, and which tests cover what
 
@@ -42,7 +43,7 @@ mechanisms the change touches (`tests/run.sh fast T6 T8`). The tiers are run set
 - **fast** (`run.sh fast`, also `quick`): T1, T5, T13. An ordinary loan, a take-back, an offline start; catches most breakage.
 - **safety** (`run.sh safety`): T4, T7, T16, T17, T19, T22, T23. A failure could dose wrongly: insulin not counted or
   counted twice, or two devices dosing.
-- **validation** (`run.sh validation`): T3, T6, T8, T10, T11, T18. Everything else that runs.
+- **validation** (`run.sh validation`): T3, T6, T8, T10, T11, T18, T25. Everything else that runs.
 - **long**: tests that sit through real waits (T16 waits out the watch's overdue report). Timed from a full run.
 
 | Mechanism | Tests |
@@ -53,8 +54,9 @@ mechanisms the change touches (`tests/run.sh fast T6 T8`). The tiers are run set
 | Nobody takes the pod mid-bolus (or with a command unconfirmed) | T22, T24 |
 | Insulin booking (estimates, records replacing them) | T4, T7, T23 |
 | Offline Start | T6, T7, T10, T13, T19 |
-| The watch off or restarting, resume | T4, T8, T17, T19 |
+| The watch off or restarting, resume | T4, T8, T17, T19, T25 |
 | Records (carbs) | T11 |
+| Presets during a loan (the watch shows the loop's; records to the phone) | T25 |
 | The watch reading the sensor | any test with a loan running; T6 with the phone away |
 
 ## Steps
@@ -129,3 +131,11 @@ after the grant. Pass, for each: the phone's system log `Refusing watch bolus wh
 notification "Bolus Not Delivered", the pod's total not moved by it, no `MANUAL BOLUS` on the phone, the loan
 `ACTIVE` and its End's check clean. The watch's bolus is a live message, and the phone drops one over 30 s old, so a
 bolus queued while the phone was away cannot reach it later.
+
+**T25.** Start on the watch. `link down`. On the watch's actions page tap Presets, the Jogging card, and turn the
+crown to start it. `link up`; `quit watch` and launch it again (the loan resumes; the watch fetches the phone's
+settings, which may not have the preset yet). Tap Presets. Pass: watch `SET-ON-WRIST Jogging`, `phone not told`,
+`APPLIED Jogging`, `RESUMED`; the Presets sheet shows the active preset ("Turn Digital Crown to End"), not the list.
+Turn the crown to end it: watch `SET-ON-WRIST · CLEARED` and `CLEARED — schedules resolve unscaled`, and the sheet no
+longer shows it active. End on the watch: the phone's system log `[override] from watch: APPLIED` and `CLEARED`, and
+the End's check clean.
