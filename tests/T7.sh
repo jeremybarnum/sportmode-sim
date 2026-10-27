@@ -27,17 +27,17 @@ say "End on the watch"
 watch_main
 end=$(now)
 ui watch tap End
-wait_for watch "$end" 'CLOSED — ' 180
+wait_for watch "$end" 'loan closed' 180
 wait_for phone "$end" 'temp cancelled' 120
 
 say "Checks"
-if [ -n "$(lines phone "$back" 'estimate BOOKED')" ]; then
-	expect_count phone "$back" 'estimate BOOKED' 1 "phone booked the watch's insulin once"
-	expect phone "$back" 'estimate RETIRED' "the watch's records retired it"
+if [ -n "$(lines phone "$back" 'estimate booked')" ]; then
+	expect_count phone "$back" 'estimate booked' 1 "phone booked the watch's insulin once"
+	expect phone "$back" 'estimate retired' "the watch's records retired it"
 else
-	pass "phone heard from the watch first and booked nothing" "no estimate BOOKED since $back"
+	pass "phone heard from the watch first and booked nothing" "no estimate booked since $back"
 fi
-expect phone "$back" 'RETRO-ACK' "phone adopted the loan"
-expect_clean phone "$end" 'reconcile\[AUTHORITATIVE\]' "final check"
+expect phone "$back" 'adopting the loan the watch started' "phone adopted the loan"
+expect_clean phone "$end" 'hand-back check:' "final check"
 expect_none phone "$back" 'Overstated' "no Insulin On Board May Be Overstated"
 verdict

@@ -18,21 +18,21 @@ sim watch off
 say "Phone back: it books the insulin and keeps the pod (up to 10 minutes)"
 pb=$(now)
 sim phone back
-wait_for phone "$pb" 'keeps the pod' 600
+wait_for phone "$pb" 'this phone keeps the pod and keeps looping' 600
 
 say "Watch back on"
 on=$(now)
 sim watch on
-wait_for watch "$on" 'RESUMED' 120
-wait_for watch "$on" 'REVOKED|stood aside|CLOSED — ' 300
+wait_for watch "$on" 'resumed loan' 120
+wait_for watch "$on" 'phone took the pod back|stood aside|loan closed' 300
 sleep 30
 
 say "Checks"
-expect phone "$pb" 'keeps the pod' "phone kept the pod after no answer"
-expect watch "$on" 'RESUMED' "watch resumed"
-expect watch "$on" 'statusReport sent' "watch asked the phone first"
-expect watch "$on" 'REVOKED|stood aside' "watch stood aside"
-expect_between_none watch "$on" 'RESUMED' 'REVOKED|stood aside' 'dosemath|enacting' "no dose before the phone's answer"
-expect phone "$on" 'estimate RETIRED' "the watch's records retired the phone's estimate"
-expect phone "$on" 'reclaim VERIFIED' "phone back in control of the pod after the records came home"
+expect phone "$pb" 'this phone keeps the pod and keeps looping' "phone kept the pod after no answer"
+expect watch "$on" 'resumed loan' "watch resumed"
+expect watch "$on" 'told the phone this watch holds the pod' "watch asked the phone first"
+expect watch "$on" 'phone took the pod back|stood aside' "watch stood aside"
+expect_between_none watch "$on" 'resumed loan' 'phone took the pod back|stood aside' 'dosemath|enacting' "no dose before the phone's answer"
+expect phone "$on" 'estimate retired' "the watch's records retired the phone's estimate"
+expect phone "$on" 'back in control of the pod' "phone back in control of the pod after the records came home"
 verdict

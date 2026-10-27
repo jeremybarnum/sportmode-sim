@@ -14,7 +14,7 @@ start=$(now)
 offline_start "$start"
 
 say "Two watch loop cycles"
-wait_for watch "$start" 'CYCLE VERDICT computed=ok' 720 2
+wait_for watch "$start" 'cycle computed,' 720 2
 
 say "Phone back; End on the watch"
 sim phone back
@@ -22,14 +22,14 @@ sleep 10
 watch_main
 end=$(now)
 ui watch tap End
-wait_for watch "$end" 'CLOSED — ' 180
+wait_for watch "$end" 'loan closed' 180
 wait_for phone "$end" 'temp cancelled' 120
 
 say "Checks"
-expect watch "$start" 'SEIZE confirmed' "offline start confirmed"
-expect watch "$start" 'seized loan ACTIVE' "watch active on its own"
-expect phone "$start" 'RETRO-ACK' "phone adopted the loan"
+expect watch "$start" 'offline start confirmed as loan' "offline start confirmed"
+expect watch "$start" 'offline loan [0-9]+ active' "watch active on its own"
+expect phone "$start" 'adopting the loan the watch started' "phone adopted the loan"
 expect phone "$start" 'until the watch took over' "phone's own window ended at the watch's takeover"
-expect_clean phone "$end" 'reconcile\[AUTHORITATIVE\]' "hand-back's check"
+expect_clean phone "$end" 'hand-back check:' "hand-back's check"
 expect phone "$end" 'temp cancelled' "watch's temp ended"
 verdict

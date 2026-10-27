@@ -35,7 +35,7 @@ sleep 75
 b2=$(now)
 watch_main
 ui watch tap End
-wait_for watch "$b2" 'CLOSED — ' 180
+wait_for watch "$b2" 'loan closed' 180
 wait_for phone "$b2" 'temp cancelled' 60
 sleep 5
 
@@ -51,7 +51,7 @@ te=$(now)
 ui watch tap End
 sleep 8
 say "wait for the bolus to be accepted and given"
-wait_for watch "$b3" 'MANUAL BOLUS .*ACCEPTED by pod' 60 >/dev/null
+wait_for watch "$b3" 'manual bolus .* accepted by the pod' 60 >/dev/null
 sleep 85
 
 say "(c) in the same loan: 2 U bolus on the watch; Take Back on the phone while it is being given"
@@ -65,7 +65,7 @@ say "wait for the watch's bolus to finish, then Take Back again"
 sleep 75
 tb2=$(now)
 take_back
-wait_for watch "$tb2" 'CLOSED — ' 120
+wait_for watch "$tb2" 'loan closed' 120
 
 say "a new loan; (b3) End, then a watch bolus asked for while the hand-back waits for the phone's answer"
 # Each live message arrives 3 s late, so the phone's acknowledgement reaches the watch about 7 s
@@ -83,8 +83,8 @@ for step in "tap $WATCH_BOLUS" "tap +" "tap +" "tap +" "tap +" "tap Bolus" "doub
 done
 sleep 20
 sim link normal
-wait_for watch "$td" 'CLOSED — ' 120
-wait_for phone "$td" 'reclaim VERIFIED' 120
+wait_for watch "$td" 'loan closed' 120
+wait_for phone "$td" 'back in control of the pod' 120
 watch_close_sheets
 # The Simulator writes its notification store a while after the notification shows: wait for it.
 # Counted by creation time: a "Bolus Not Sent" from an earlier run is replaced, not added to.
@@ -95,30 +95,30 @@ for i in $(seq 15); do
 done
 
 say "Checks"
-expect phone "$a" 'grant REFUSED — this phone.s bolus is still being given' "(a) Start refused while the phone's bolus is being given"
-expect_none_between phone "$a" "$a2" 'GRANT — releasing pod' "(a) nothing released by the refused Start"
+expect phone "$a" 'refused the watch.s Start: A bolus is still being given' "(a) Start refused while the phone's bolus is being given"
+expect_none_between phone "$a" "$a2" 'lending the pod to the watch' "(a) nothing released by the refused Start"
 # The screens' gate, logged on change: after the refusal the last word before the next Start is "not live".
-gate=$(lines watch "$a" 'stock pages .* loanIsLive=' | awk -v t="$a2" '$1 < t' | tail -1)
-echo "$gate" | grep -q 'loanIsLive=false' && pass "(a) after the refused Start the screens do not act as if a loan were live" "$gate" \
+gate=$(lines watch "$a" 'stock pages ' | awk -v t="$a2" '$1 < t' | tail -1)
+echo "$gate" | grep -q 'no loan is live' && pass "(a) after the refused Start the screens do not act as if a loan were live" "$gate" \
 	|| fail "(a) after the refused Start the screens do not act as if a loan were live" "${gate:-no gate line since $a}"
-expect watch "$a2" 'ACTIVE — epoch' "(a) the Start after the bolus went through"
-expect watch "$b" 'HAND-BACK refused( at the tap)? — a bolus is being given' "(b) End refused while the watch's bolus is being given"
+expect watch "$a2" 'loan [0-9]+ active' "(a) the Start after the bolus went through"
+expect watch "$b" 'hand-back refused( at the tap)?: a bolus is being given' "(b) End refused while the watch's bolus is being given"
 expect_none_between phone "$b" "$b2" 'offer RX' "(b) no hand-back offer reached the phone during the bolus"
-expect watch "$b2" 'CLOSED — ' "(b) the End after the bolus handed back"
-acc=$(lines watch "$b3" 'MANUAL BOLUS .*ACCEPTED by pod' | head -1 | cut -c1-8)
+expect watch "$b2" 'loan closed' "(b) the End after the bolus handed back"
+acc=$(lines watch "$b3" 'manual bolus .* accepted by the pod' | head -1 | cut -c1-8)
 if [ -n "$acc" ] && [ "$te" \< "$acc" ]; then pass "(b2) the End came before the pod accepted the bolus (End $te, accepted $acc)" ""
 else fail "(b2) the End came before the pod accepted the bolus (End $te, accepted ${acc:-never})" ""; fi
-expect watch "$te" 'HAND-BACK refused at the tap — a bolus is being given \(ends when the pod has it\)' "(b2) End refused while the bolus was sent but not yet accepted"
-expect_none_between watch "$te" "$c" 'HAND-BACK requested' "(b2) no hand-back started"
+expect watch "$te" 'hand-back refused at the tap: a bolus is being given, ending when the pod has it' "(b2) End refused while the bolus was sent but not yet accepted"
+expect_none_between watch "$te" "$c" 'hand-back requested' "(b2) no hand-back started"
 expect_none_between phone "$te" "$c" 'offer RX' "(b2) no hand-back offer reached the phone"
-expect phone "$tb" 'take-back REFUSED — the pod is giving the watch.s bolus' "(c) Take Back refused while the watch's bolus is being given"
-expect_none_between watch "$tb" "$tb2" 'REVOKED' "(c) the loan continued during the bolus (no REVOKED)"
-expect watch "$tb2" 'REVOKED' "(c) the Take Back after the bolus took the pod"
-expect watch "$td" 'BOLUS REFUSED — .*an End is waiting' "(b3) the bolus asked for while the End waited was refused"
-expect_none watch "$td" 'MANUAL BOLUS .*enacting' "(b3) no bolus sent to the pod"
+expect phone "$tb" 'take-back refused: the pod is giving the watch.s bolus' "(c) Take Back refused while the watch's bolus is being given"
+expect_none_between watch "$tb" "$tb2" 'phone took the pod back' "(c) the loan continued during the bolus (no phone took the pod back)"
+expect watch "$tb2" 'phone took the pod back' "(c) the Take Back after the bolus took the pod"
+expect watch "$td" 'bolus of .* refused: an End is waiting' "(b3) the bolus asked for while the End waited was refused"
+expect_none watch "$td" 'enacting manual bolus' "(b3) no bolus sent to the pod"
 [ "$not_sent" -gt 0 ] && pass "(b3) the watch said \"Bolus Not Sent\"" "" || fail "(b3) the watch said \"Bolus Not Sent\"" "no new such notification"
-expect watch "$td" 'drain complete' "(b3) the End went on: the drain completed"
-expect watch "$td" 'CLOSED — ' "(b3) the End completed"
-expect phone "$td" 'reclaim VERIFIED' "(b3) the phone took the pod back"
-expect_clean phone "$td" 'reconcile\[AUTHORITATIVE\]' "(b3) the phone's audit"
+expect watch "$td" 'dosing stopped; finishing the hand-back' "(b3) the End went on: the dosing stopped; finishing the hand-backd"
+expect watch "$td" 'loan closed' "(b3) the End completed"
+expect phone "$td" 'back in control of the pod' "(b3) the phone took the pod back"
+expect_clean phone "$td" 'hand-back check:' "(b3) the phone's audit"
 verdict

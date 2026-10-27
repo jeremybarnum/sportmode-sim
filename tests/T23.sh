@@ -26,7 +26,7 @@ end_loan() { # case
 		watch_main
 		t=$(now)
 		ui watch tap End
-		logged_within watch "$t" 'HAND-BACK requested' 15 && { wait_for watch "$t" 'CLOSED — ' 120 >/dev/null; wait_for phone "$t" 'reconcile\[AUTHORITATIVE\]' 60 >/dev/null; echo "$t"; return 0; }
+		logged_within watch "$t" 'hand-back requested' 15 && { wait_for watch "$t" 'loan closed' 120 >/dev/null; wait_for phone "$t" 'hand-back check:' 60 >/dev/null; echo "$t"; return 0; }
 		say "the End was not taken or a bolus is under way; again in 30 s" >&2
 		sleep 30
 	done
@@ -35,7 +35,7 @@ end_loan() { # case
 # A refused bolus: the system log line, the notification, and the pod's total not moved by it.
 refused() { # case since delivered-before
 	local line note after
-	line=$(oslog "$2" "Refusing watch bolus while the pod is on loan")
+	line=$(oslog "$2" "bolus sent from the watch: the pod is on loan")
 	[ -n "$line" ] && pass "($1) the phone refused the watch's bolus" "$line" || fail "($1) the phone refused the watch's bolus" "no refusal in the phone's system log"
 	note=$(python3 "$root/tests/notifications.py" "$PHONE_SIM_ID" --since "$2" delivered | grep "	Bolus Not Delivered	" | head -1)
 	[ -n "$note" ] && pass "($1) the phone posted \"Bolus Not Delivered\"" "$note" || fail "($1) the phone posted \"Bolus Not Delivered\"" "no such notification since $2"
@@ -56,19 +56,19 @@ reset
 say "(1) The watch's radio out of range; Start; after the phone's grant, a 1 U watch bolus"
 sim watch away
 s1=$(tap_start)
-wait_for phone "$s1" 'GRANT — releasing pod BLE' 60
+wait_for phone "$s1" 'lending the pod to the watch' 60
 d1=$(pod_delivered)
 b1=$(now)
 watch_bolus_send 1
 sleep 10
 sim watch back
-wait_for watch "$s1" 'ACTIVE — epoch' 90
-expect_none watch "$s1" 'TAKEOVER ABORTED|TAKEOVER FAILED' "(1) the takeover went through"
+wait_for watch "$s1" 'loan [0-9]+ active' 90
+expect_none watch "$s1" 'takeover failed' "(1) the takeover went through"
 refused 1 "$b1" "$d1"
 
 say "(1) End; the loan hands back cleanly"
 e1=$(end_loan 1)
-expect_clean phone "$e1" 'reconcile\[AUTHORITATIVE\]' "(1) the hand-back's check"
+expect_clean phone "$e1" 'hand-back check:' "(1) the hand-back's check"
 
 say "(2) Link 8 s slow each way; Start, then a 1 U watch bolus at once"
 sim link slow 8
@@ -78,17 +78,17 @@ s2=$(now)
 ui watch tap "Start Sport Mode"
 watch_bolus_send 1
 b2=$s2
-wait_for phone "$s2" 'GRANT — releasing pod BLE' 60
-logged_within watch "$s2" 'ACTIVE — epoch' 90 || true
+wait_for phone "$s2" 'lending the pod to the watch' 60
+logged_within watch "$s2" 'loan [0-9]+ active' 90 || true
 sleep 20
 sim link normal
-wait_for watch "$s2" 'ACTIVE — epoch' 90
-grant=$(lines phone "$s2" 'GRANT — releasing pod BLE' | head -1 | cut -c1-12)
-ref=$(oslog "$s2" "Refusing watch bolus while the pod is on loan" | awk '{print $2}' | cut -c1-12)
+wait_for watch "$s2" 'loan [0-9]+ active' 90
+grant=$(lines phone "$s2" 'lending the pod to the watch' | head -1 | cut -c1-12)
+ref=$(oslog "$s2" "bolus sent from the watch: the pod is on loan" | awk '{print $2}' | cut -c1-12)
 say "grant $grant, refusal ${ref:-none}"
 refused 2 "$b2" "$d2"
 
 say "(2) End; the loan hands back cleanly"
 e2=$(end_loan 2)
-expect_clean phone "$e2" 'reconcile\[AUTHORITATIVE\]' "(2) the hand-back's check"
+expect_clean phone "$e2" 'hand-back check:' "(2) the hand-back's check"
 verdict

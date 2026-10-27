@@ -29,7 +29,7 @@ done
 ui watch swipeleft ", 13 g"
 d=$(now)
 ui watch tap Delete
-wait_for watch "$d" 'carb DELETE' 30
+wait_for watch "$d" 'carb deletion' 30
 sleep 1
 watch_close_sheets
 
@@ -37,11 +37,11 @@ say "End on the watch"
 watch_main
 end=$(now)
 ui watch tap End
-wait_for watch "$end" 'CLOSED — ' 180
-wait_for phone "$end" 'carb DELETE' 60
+wait_for watch "$end" 'loan closed' 180
+wait_for phone "$end" 'carb delete from the watch' 60
 
 say "Checks"
-expect watch "$d" 'carb DELETE journaled 13 g' "watch recorded the delete"
-expect phone "$end" 'carb DELETE from wrist — 13 g' "the delete reached the phone"
-expect_none phone "$end" 'carb DELETE MISSED' "the phone applied it"
+expect watch "$d" 'carb deletion of 13 g recorded' "watch recorded the delete"
+expect phone "$end" 'carb delete from the watch applied: 13 g' "the delete reached the phone"
+expect_none phone "$end" 'carb delete from the watch failed' "the phone applied it"
 verdict

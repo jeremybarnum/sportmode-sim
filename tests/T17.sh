@@ -11,7 +11,7 @@ reset
 say "Start on the watch, one loop cycle"
 start=$(now)
 start_loan "$start"
-wait_for watch "$start" 'CYCLE VERDICT computed=ok' 400
+wait_for watch "$start" 'cycle computed,' 400
 
 say "Watch off; the phone takes the pod back and boluses 0.5 U"
 sim watch off
@@ -27,14 +27,14 @@ sleep 20
 say "Watch back on"
 on=$(now)
 sim watch on
-wait_for watch "$on" 'RESUMED' 120
-wait_for watch "$on" 'REVOKED|stood aside' 300
+wait_for watch "$on" 'resumed loan' 120
+wait_for watch "$on" 'phone took the pod back|stood aside' 300
 
 say "Checks"
-expect watch "$on" 'RESUMED' "watch resumed"
+expect watch "$on" 'resumed loan' "watch resumed"
 # The watch asks before looping, unless the phone's queued stop, delivered at launch, stood it aside
 # before it needed to; either way nothing doses before the answer (the next check).
-expect watch "$on" 'statusReport sent|REVOKED' "watch asked the phone first, or the phone's stop landed first"
-expect watch "$on" 'REVOKED|stood aside' "watch stood aside"
-expect_between_none watch "$on" 'RESUMED' 'REVOKED|stood aside' 'dosemath|enacting' "no dose before the phone's answer"
+expect watch "$on" 'told the phone this watch holds the pod|phone took the pod back' "watch asked the phone first, or the phone's stop landed first"
+expect watch "$on" 'phone took the pod back|stood aside' "watch stood aside"
+expect_between_none watch "$on" 'resumed loan' 'phone took the pod back|stood aside' 'dosemath|enacting' "no dose before the phone's answer"
 verdict

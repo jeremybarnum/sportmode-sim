@@ -29,11 +29,11 @@ sleep 15
 watch_main
 e2=$(now)
 ui watch tap End
-wait_for watch "$e2" 'CLOSED — ' 180
+wait_for watch "$e2" 'loan closed' 180
 wait_for phone "$e2" 'temp cancelled' 120
 
 say "Checks"
-expect_within watch "$e" 'HAND-BACK not possible' 13 "End refused after the 10 s wait"
+expect_within watch "$e" 'hand-back not possible' 13 "End refused after the 10 s wait"
 if [ "$still" = 1 ]; then pass "loan continued (End still on screen)" ""; else fail "loan continued (End still on screen)" ""; fi
-expect_clean phone "$e2" 'reconcile\[AUTHORITATIVE\]' "the second End's check"
+expect_clean phone "$e2" 'hand-back check:' "the second End's check"
 verdict

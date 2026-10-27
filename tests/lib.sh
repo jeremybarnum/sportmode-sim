@@ -19,7 +19,7 @@ PHONE_PASSCODE=${PHONE_PASSCODE:-1}                     # a phone bolus asks the
 PHONE_CARBS_OPEN=${PHONE_CARBS_OPEN:-Add Carbs}             # the phone's carb entry: open, continue, save
 PHONE_CARBS_CONTINUE=${PHONE_CARBS_CONTINUE:-button_Continue}
 PHONE_CARBS_SAVE=${PHONE_CARBS_SAVE:-button_bolusAction}
-BOLUS_ACCEPTED=${BOLUS_ACCEPTED:-MANUAL BOLUS .*ACCEPTED by pod}
+BOLUS_ACCEPTED=${BOLUS_ACCEPTED:-manual bolus .* accepted by the pod}
 T0=$(date +%T) # the test's start: its logs are read from here
 failed=0
 
@@ -233,7 +233,7 @@ tap_start() {
 	for i in 1 2 3; do
 		t=$(now)
 		ui watch tap "Start Sport Mode"
-		logged_within watch "$t" 'REQUEST sent' 6 && { echo "$t"; return 0; }
+		logged_within watch "$t" 'loan requested from the phone' 6 && { echo "$t"; return 0; }
 		say "the Start tap was not taken; tapping again" >&2
 	done
 	abort "the watch did not take the Start tap"
@@ -263,7 +263,7 @@ watch_start_shown() {
 # Start on the watch and wait for the loan.
 start_loan() {
 	tap_start >/dev/null
-	wait_for watch "$1" 'ACTIVE — epoch' 90
+	wait_for watch "$1" 'loan [0-9]+ active' 90
 }
 
 # An offline start: Start, then Start Anyway when the watch offers it.
@@ -271,7 +271,7 @@ offline_start() {
 	tap_start >/dev/null
 	ui watch wait 20 "Start Anyway"
 	ui watch tap "Start Anyway"
-	wait_for watch "$1" 'seized loan ACTIVE' 240
+	wait_for watch "$1" 'offline loan [0-9]+ active' 240
 }
 
 # The watch's bolus screen: + and − step 0.5 U, so the amount goes to zero and then up in halves;
@@ -431,7 +431,7 @@ reset() {
 		if shows watch "Start Anyway"; then ui watch tap Cancel
 		elif shows watch End; then
 			say "a loan is running: the phone takes the pod back"
-			t=$(now); take_back; wait_for watch "$t" 'CLOSED — ' 120 >/dev/null
+			t=$(now); take_back; wait_for watch "$t" 'loan closed' 120 >/dev/null
 		fi
 		"$UI" watch wait 60 "Start Sport Mode" >/dev/null 2>&1 && { watch_reads_sensor; return 0; }
 		watch_main
@@ -444,12 +444,12 @@ reset() {
 watch_reads_sensor() {
 	local since
 	since=$(date -v-7M +%T)
-	[ -n "$(lines watch "$since" 'INGEST src=direct-G7')" ] && return 0
+	[ -n "$(lines watch "$since" 'G7 reading')" ] && return 0
 	say "the watch has not read the sensor for 7 minutes: relaunching its app"
 	since=$(now)
 	"$SIM" launch watch >/dev/null
 	"$UI" ensure watch >/dev/null
-	wait_for watch "$since" 'INGEST src=direct-G7' 420
+	wait_for watch "$since" 'G7 reading' 420
 }
 
 # The simulated pod's log lines since a time, matching a regex (it stamps whole seconds): what reached

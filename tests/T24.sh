@@ -31,12 +31,12 @@ start=$(now)
 offline_start "$start"
 
 say "Two watch loop cycles"
-wait_for watch "$start" 'CYCLE VERDICT computed=ok' 720 2
+wait_for watch "$start" 'cycle computed,' 720 2
 
 say "Phone back: it stands aside and reads the pod, which resyncs"
 back=$(now)
 sim phone back
-wait_for phone "$back" 'RETRO-ACK|YIELDING to an inferred loan' 180
+wait_for phone "$back" 'adopting the loan the watch started|standing aside for a loan the watch started' 180
 dropped=$(oslog_wait "$back" "dropped, nothing booked" 60)
 released=$(oslog_wait "$back" "releaseConnection" 30)
 
@@ -45,13 +45,13 @@ sleep 10
 watch_main
 end=$(now)
 ui watch tap End
-wait_for watch "$end" 'CLOSED — ' 180
-wait_for phone "$end" 'reconcile\[AUTHORITATIVE\]' 120
+wait_for watch "$end" 'loan closed' 180
+wait_for phone "$end" 'hand-back check:' 120
 
 say "Checks"
 held=$(pod_lines "$b" 'holding command with sequence' | head -1)
 [ -n "$held" ] && pass "the pod held the phone's command" "$held" || fail "the pod held the phone's command" "no hold in the pod's log since $b"
-expect watch "$start" 'SEIZE confirmed' "offline start confirmed"
+expect watch "$start" 'offline start confirmed as loan' "offline start confirmed"
 sync=$(pod_lines "$back" 'sending a synchronization failure' | head -1)
 [ -n "$sync" ] && pass "the pod answered the phone's stale session count" "$sync" \
 	|| fail "the pod answered the phone's stale session count" "no resync since $back: does this rig's pod simulator resync (LoopKit/pod#25, POD_SIM)?"
@@ -62,8 +62,8 @@ say "before that, a refusal to let go: ${refused:-none (the resync came first)}"
 [ -n "$refused" ] && expect phone "$back" 'reading the pod to settle it' "the phone read the pod at once to settle the command"
 [ -n "$released" ] && pass "the phone's driver let go of the pod" "$released" \
 	|| fail "the phone's driver let go of the pod" "no release in the phone's system log since $back"
-expect phone "$back" 'RETRO-ACK' "the phone adopted the loan"
+expect phone "$back" 'adopting the loan the watch started' "the phone adopted the loan"
 expect_residual phone "$back" 'until the watch took over' 0.30 0.70 "the phone's own check books the bolus up to the watch's takeover"
-expect_clean phone "$end" 'reconcile\[AUTHORITATIVE\]' "hand-back's check"
+expect_clean phone "$end" 'hand-back check:' "hand-back's check"
 expect_none phone "$b" 'Overstated' "no false overstated warning"
 verdict

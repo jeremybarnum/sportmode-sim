@@ -17,7 +17,7 @@ ui watch tap Cancel
 sim phone back
 sleep 15
 # A Start cancelled at the offer must not start later: the queued request is cancelled with it.
-ghost=$(lines watch "$a" 'GRANT received' | head -1)
+ghost=$(lines watch "$a" 'grant received' | head -1)
 [ -n "$ghost" ] && reset
 
 say "(c) Phone app not running; Start on the watch"
@@ -29,15 +29,15 @@ sim launch phone
 sleep 10
 
 say "Checks"
-expect_within watch "$a" 'offering offline start' 12 "(a) offered after the 10 s wait, phone out of reach"
+expect_within watch "$a" 'offering an offline start' 12 "(a) offered after the 10 s wait, phone out of reach"
 # A message to a phone app that is not running can wake it (the Simulator does), and then it answers:
 # a grant, or a denial while it is still reaching its pod. Either is an answer, so no offer.
-if [ -n "$(lines watch "$c" 'GRANT received|DENIED by phone')" ]; then
-	pass "(c) the phone app woke to the request and answered: the offer is not reached this way here" "$(lines watch "$c" 'GRANT received|DENIED by phone' | head -1)"
+if [ -n "$(lines watch "$c" 'grant received|phone denied the loan')" ]; then
+	pass "(c) the phone app woke to the request and answered: the offer is not reached this way here" "$(lines watch "$c" 'grant received|phone denied the loan' | head -1)"
 else
-	expect_within watch "$c" 'offering offline start' 12 "(c) offered after the 10 s wait, phone app not running"
+	expect_within watch "$c" 'offering an offline start' 12 "(c) offered after the 10 s wait, phone app not running"
 fi
-expect_none watch "$a" 'SEIZE confirmed' "no offline start without the confirm"
+expect_none watch "$a" 'offline start confirmed as loan' "no offline start without the confirm"
 if [ -z "$ghost" ]; then pass "(a) the cancelled Start did not start a loan when the phone came back" ""
 else fail "(a) the cancelled Start did not start a loan when the phone came back" "$ghost"; fi
 verdict

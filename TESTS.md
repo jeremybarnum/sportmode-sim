@@ -68,38 +68,38 @@ mechanisms the change touches (`tests/run.sh fast T6 T8`). The tiers are run set
 ## Steps
 
 **T1.** Tap Start on the watch. Let two readings pass. Tap End on the watch.
-Pass: phone `reconcile[AUTHORITATIVE]` within ±0.20 U and `temp cancelled`; watch `ACTIVE`, `[odometer] (own)`
-within ±0.20 U at each reading, `hand-back`, `ack RECEIVED`; no watch `BOOKED`.
+Pass: phone `hand-back check` within ±0.20 U and `temp cancelled`; watch `loan N active`, `insulin check`
+within ±0.20 U at each reading, `hand-back`, `phone acknowledged the hand-back`; no watch `booked … U`.
 
-**T2.** In any run, the watch logging `drain GIVING UP` or `staying RELEASED`. Pass: phone `reclaim VERIFIED`, then
+**T2.** In any run, the watch logging `loan closed after N unanswered offers` or `the pod is released and the records keep going to the phone`. Pass: phone `back in control of the pod`, then
 `temp cancelled`, with no `reconcile[` between them.
 
 **T3.** During a loan, on the phone tap the pod tile and take the pod back.
-Pass within about 5 s: phone `take-back: pod link up`, `revoke`, `reconcile[FORCE-RECLAIM]`, `temp cancelled`; the
+Pass within about 5 s: phone `take-back: pod link up`, `telling the watch to stop`, `take-back check`, `temp cancelled`; the
 watch closes the loan.
 
 **T4.** Start on the watch, one cycle. `phone away`. Bolus 0.5 U on the watch (confirm with a double tap) and wait for
 the pod to accept it. `watch off`. `phone back`. Take the pod back on the phone. Wait one reading. `watch on`.
-Pass: phone `reconcile[FORCE-RECLAIM]` near the bolus, one `estimate BOOKED`; next reading `[odometer] (own)` near
-zero and no second booking; watch `RESUMED`, the stop received before any `dosemath`; phone `estimate RETIRED`
+Pass: phone `take-back check` near the bolus, one `estimate booked`; next reading `insulin check` near
+zero and no second booking; watch `resumed loan`, the stop received before any `dosemath`; phone `estimate retired`
 when the records arrive.
 
 **T5.** During a loan, `pod away`, take back on the phone. `pod back`, take back again.
-Pass: first `take-back REFUSED — no pod link …; loan unchanged`, "Couldn't Reach the Pod"; then as T3.
+Pass: first `take-back refused: no pod link …; the loan is unchanged`, "Couldn't Reach the Pod"; then as T3.
 
 **T6.** `phone away`. Start on the watch, Start Anyway. Two readings. `phone back`. End on the watch.
-Pass: watch `SEIZE confirmed`, `seized loan ACTIVE`; phone `[seize] RETRO-ACK`,
-`reconcile[AUTHORITATIVE]` within ±0.20 U, `temp cancelled`.
+Pass: watch `offline start confirmed as loan`, `offline loan N active`; phone `adopting the loan the watch started`,
+`hand-back check` within ±0.20 U, `temp cancelled`.
 
 **T7.** `phone away`. Offline start on the watch; bolus 0.5 U on the watch. Short: wait 3 minutes, `phone back`,
 End on the watch. Full: `watch off` after the bolus, `phone back`, wait one reading, `watch on`, End on
-the watch. Pass: phone `estimate BOOKED` at its first reading if it reads the pod before it hears from the watch
-(standing aside and booking nothing is also right); next reading near zero; at the hand-back `RETRO-ACK`, `estimate
-RETIRED`, final check within ±0.20 U.
+the watch. Pass: phone `estimate booked` at its first reading if it reads the pod before it hears from the watch
+(standing aside and booking nothing is also right); next reading near zero; at the hand-back `adopting the loan the watch started`, `estimate
+retired`, final check within ±0.20 U.
 
 **T8.** During a loan, `quit watch` then `launch watch` (or `watch off`, `watch on`). Booking case: with the watch
 off, take the pod back on the phone and bolus on the phone (passcode 0000), then `watch on`.
-Pass: watch `RESUMED`, then at its first pod report `[odometer] (own)` within ±0.20 U or `BOOKED`, with no
+Pass: watch `resumed loan`, then at its first pod report `insulin check` within ±0.20 U or `booked … U`, with no
 `dosemath` or `enacting` before it.
 
 **T10.** (a) `phone away`, tap Start. (b) Tap Start, `phone away` within 10 s. (c) `quit phone`, tap Start.
@@ -110,39 +110,39 @@ Pass: watch (a) `offline start offered now` at the tap; (b) `phone went out of r
 Pass: phone `carb DELETE from wrist`, `carb DELETE applied on phone`; the entry gone from the phone's list.
 
 **T13.** `pod away`, `phone away`. Start on the watch, Start Anyway; the takeover fails after about 3 minutes
-(`TAKEOVER FAILED`). `pod back`, `phone back`; wait for the phone to read the pod. Normal Start on the watch.
-Pass: phone `GRANT` numbered above the watch's loan; watch `GRANT received`, `ACTIVE`, no `grant REJECTED`.
+(`takeover failed`). `pod back`, `phone back`; wait for the phone to read the pod. Normal Start on the watch.
+Pass: phone `lending the pod to the watch` numbered above the watch's loan; watch `grant received`, `loan N active`, no `grant rejected`.
 
 **T16.** Start on the watch; bolus 0.5 U on the watch. `watch off`. Keep the phone app in front; touch nothing for
 about 12 minutes. Pass: phone `asking the watch whether it holds the pod`, about 10 s later `the watch did NOT answer —
-taking the pod back`, `take-back: pod link up`, `reconcile[FORCE-RECLAIM]` booking about 0.5 U, `temp cancelled`,
+taking the pod back`, `take-back: pod link up`, `take-back check` booking about 0.5 U, `temp cancelled`,
 "Watch Not Looping".
 
 **T17.** Start on the watch, one cycle. `watch off`. Take the pod back on the phone and bolus 0.5 U on the phone
-(passcode 0000). `watch on`. Pass: watch `RESUMED`, `statusReport sent … asking the phone before looping`, `RX
-revoke`, `REVOKED`, no `dosemath` between `RESUMED` and the revoke.
+(passcode 0000). `watch on`. Pass: watch `resumed loan`, `told the phone this watch holds the pod`,
+`phone took the pod back`, no `dosemath` between `resumed loan` and the take-back.
 
-**T18.** During a loan, `phone away`. Tap End on the watch. Pass: about 10 s later `HAND-BACK not possible`, the
+**T18.** During a loan, `phone away`. Tap End on the watch. Pass: about 10 s later `hand-back not possible`, the
 message on screen, the loan continues. `phone back`, End again: a clean hand-back.
 
 **T19.** `phone away`. Offline start on the watch; bolus 0.5 U; `watch off`. `phone back` with the phone app in front:
 at its first reading the phone books the insulin and keeps the pod. `watch on`. Pass: phone `no answer from the watch
 … keeps the pod`, then `a revived watch's claim to a loan started before this phone took over … revoke`; watch
-`RESUMED`, "Checking with your iPhone…", `REVOKED`, no `dosemath` between.
+`resumed loan`, "Checking with your iPhone…", `phone took the pod back`, no `dosemath` between.
 
 **T23.** A watch bolus that reaches the phone after it has handed the pod over. (1) `watch away` (the watch's radio
-out of range, its link to the phone up); Start on the watch; after the phone's `GRANT`, a 1 U bolus on the watch,
+out of range, its link to the phone up); Start on the watch; after the phone's `lending the pod to the watch`, a 1 U bolus on the watch,
 which goes to the phone; `watch back`. (2) `link slow 8`; Start, then at once a 1 U bolus on the watch, which arrives
 after the grant. Pass, for each: the phone's system log `Refusing watch bolus while the pod is on loan`, a phone
 notification "Bolus Not Delivered", the pod's total not moved by it, no `MANUAL BOLUS` on the phone, the loan
-`ACTIVE` and its End's check clean. The watch's bolus is a live message, and the phone drops one over 30 s old, so a
+`loan N active` and its End's check clean. The watch's bolus is a live message, and the phone drops one over 30 s old, so a
 bolus queued while the phone was away cannot reach it later.
 
 **T25.** Start on the watch. `link down`. On the watch's actions page tap Presets, the Jogging card, and turn the
 crown to start it. `link up`; `quit watch` and launch it again (the loan resumes; the watch fetches the phone's
-settings, which may not have the preset yet). Tap Presets. Pass: watch `SET-ON-WRIST Jogging`, `phone not told`,
-`APPLIED Jogging`, `RESUMED`; the Presets sheet shows the active preset ("Turn Digital Crown to End"), not the list.
-Turn the crown to end it: watch `SET-ON-WRIST · CLEARED` and `CLEARED — schedules resolve unscaled`, and the sheet no
+settings, which may not have the preset yet). Tap Presets. Pass: watch `override Jogging in effect`, `phone not told`,
+`resumed loan`; the Presets sheet shows the active preset ("Turn Digital Crown to End"), not the list.
+Turn the crown to end it: watch `override ended; schedules apply unscaled`, and the sheet no
 longer shows it active. End on the watch: the phone's system log `[override] from watch: APPLIED` and `CLEARED`, and
 the End's check clean.
 

@@ -11,7 +11,7 @@ reset
 say "Start on the watch, one loop cycle"
 start=$(now)
 start_loan "$start"
-wait_for watch "$start" 'CYCLE VERDICT computed=ok' 400
+wait_for watch "$start" 'cycle computed,' 400
 
 say "Take the pod back on the phone"
 dismiss_alert
@@ -19,13 +19,13 @@ ui phone "tap~" "Sport Mode"
 tap=$(now)
 ui phone tap "Reclaim Now"
 wait_for phone "$tap" 'temp cancelled' 60
-wait_for watch "$tap" 'CLOSED — ' 120
+wait_for watch "$tap" 'loan closed' 120
 
 say "Checks"
 expect_within phone "$tap" 'take-back: pod link up' 5 "phone reached the pod"
-expect phone "$tap" 'send revoke|watch told to stop' "phone told the watch to stop"
-expect_clean phone "$tap" 'reconcile\[FORCE-RECLAIM\]' "phone's check of the pod's total"
+expect phone "$tap" 'telling the watch to stop' "phone told the watch to stop"
+expect_clean phone "$tap" 'take-back check: delivered' "phone's check of the pod's total"
 expect_within phone "$tap" 'temp cancelled' 8 "watch's temp ended"
-expect watch "$tap" 'REVOKED' "watch stood aside"
-expect watch "$tap" 'CLOSED — ' "watch closed the loan"
+expect watch "$tap" 'phone took the pod back' "watch stood aside"
+expect watch "$tap" 'loan closed' "watch closed the loan"
 verdict

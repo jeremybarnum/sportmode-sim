@@ -12,11 +12,11 @@ for i in 1 2 3 4; do
 	s=$(now); start_loan "$s"
 	# As before the crash: the watch app relaunched during the loan, and resumed it.
 	q=$(now); sim quit watch; sleep 3; sim launch watch
-	wait_for watch "$q" 'RESUMED' 60
+	wait_for watch "$q" 'resumed loan' 60
 	sleep ${REPRO_WAIT:-70}
 	tb=$(now)
 	take_back
-	wait_for watch "$tb" 'CLOSED — ' 60
+	wait_for watch "$tb" 'loan closed' 60
 	g=$(now)
 	ui watch wait 10 "Start Sport Mode"
 	ui watch tap "Start Sport Mode"
@@ -25,6 +25,6 @@ for i in 1 2 3 4; do
 		say "WATCH CRASHED in round $i: $(ls -t ~/Library/Logs/DiagnosticReports/ | grep '^WatchApp' | head -1)"
 		failed=1; verdict
 	fi
-	expect watch "$g" 'GRANT received' "round $i: the Start after the take-back was granted"
+	expect watch "$g" 'grant received' "round $i: the Start after the take-back was granted"
 done
 verdict

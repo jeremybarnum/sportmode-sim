@@ -25,7 +25,7 @@ set -u
 hold() {
 	local i t
 	sim glucose "$1"
-	for i in $(seq 1 "$2"); do t=$(now); wait_for watch "$t" 'INGEST src=direct-G7' 330 >/dev/null; done
+	for i in $(seq 1 "$2"); do t=$(now); wait_for watch "$t" 'G7 reading' 330 >/dev/null; done
 }
 
 say "$TEST — a take-back after the watch ended a temp early"
@@ -42,8 +42,8 @@ if [ "${INTERIM:-0}" = 1 ]; then
 	watch_main
 	te=$(now)
 	ui watch tap End
-	wait_for watch "$te" 'HAND-BACK not possible' 60
-	wait_for phone "$te" 'write DONE' 60
+	wait_for watch "$te" 'hand-back not possible' 60
+	wait_for phone "$te" 'records saved in' 60
 	sim link normal
 fi
 if [ "${LATE_TEMP:-0}" = 1 ]; then
@@ -52,13 +52,13 @@ if [ "${LATE_TEMP:-0}" = 1 ]; then
 	for v in 107 99 91 83 75 75 75; do
 		sim glucose "$v"
 		t=$(now)
-		wait_for watch "$t" 'INGEST src=direct-G7' 330 >/dev/null
+		wait_for watch "$t" 'G7 reading' 330 >/dev/null
 		sleep 15
-		[ -n "$(lines watch "$tt" 'tempBasal JOURNALED.*0\.00 U/hr')" ] && break
+		[ -n "$(lines watch "$tt" 'temp basal 0\.00 U/hr recorded')" ] && break
 	done
-	wait_for watch "$tt" 'tempBasal JOURNALED' 60
+	wait_for watch "$tt" 'temp basal [0-9.]+ U/hr recorded' 60
 else
-	wait_for watch "$start" 'tempBasal JOURNALED' 600
+	wait_for watch "$start" 'temp basal [0-9.]+ U/hr recorded' 600
 fi
 lt=$(now)
 
@@ -79,11 +79,11 @@ if [ "${SHUTDOWN:-0}" = 1 ]; then
 	sleep "${RELAUNCH_GAP:-400}"
 	rw=$(now)
 	sim watch on
-	wait_for watch "$rw" 'RESUME: pump manager built' 180
+	wait_for watch "$rw" 'pump manager rebuilt' 180
 	sleep 20
 	keep_state after
-	lines watch "$rw" 'RESUME|RESUMED|JOURNALED|no command needed|enacting|pod-ble\] (send|receive)' | head -14
-	ended=$(lines watch "$rw" 'cancel JOURNALED|tempBasal JOURNALED' | head -1)
+	lines watch "$rw" 'resume|pump manager rebuilt|recorded for the phone|no command needed|enacting|pod-ble\] (send|receive)' | head -14
+	ended=$(lines watch "$rw" 'temp basal (cancel|[0-9.]+ U/hr) recorded' | head -1)
 	[ -n "$ended" ] || ended="nothing journaled after the reboot"
 	say "Phone app reopened"
 	"$SIM" launch phone >/dev/null
@@ -97,10 +97,10 @@ if [ "${RELAUNCH:-0}" = 1 ]; then
 	sleep "${RELAUNCH_GAP:-3}"
 	rw=$(now)
 	sim launch watch
-	wait_for watch "$rw" 'RESUME: pump manager built|RESUMED' 120
-	logged_within watch "$rw" 'cancel JOURNALED|tempBasal JOURNALED' 120 || true
-	ended=$(lines watch "$rw" 'cancel JOURNALED|tempBasal JOURNALED' | head -1)
-	lines watch "$rw" 'RESUME|RESUMED|no command needed|enacting' | head -6
+	wait_for watch "$rw" 'pump manager rebuilt|resumed loan' 120
+	logged_within watch "$rw" 'temp basal (cancel|[0-9.]+ U/hr) recorded' 120 || true
+	ended=$(lines watch "$rw" 'temp basal (cancel|[0-9.]+ U/hr) recorded' | head -1)
+	lines watch "$rw" 'resume|pump manager rebuilt|no command needed|enacting' | head -6
 	if [ "${BOTH:-0}" = 1 ]; then
 		say "Phone app reopened"
 		"$SIM" launch phone >/dev/null
@@ -112,9 +112,9 @@ fi
 [ -n "$ended" ] || for v in 90 105 110 110 110 120 130 110 110 110; do
 	sim glucose "$v"
 	t=$(now)
-	wait_for watch "$t" 'INGEST src=direct-G7' 330 >/dev/null
+	wait_for watch "$t" 'G7 reading' 330 >/dev/null
 	sleep 15
-	ended=$(lines watch "$lt" 'cancel JOURNALED|tempBasal JOURNALED' | head -1)
+	ended=$(lines watch "$lt" 'temp basal (cancel|[0-9.]+ U/hr) recorded' | head -1)
 	[ -n "$ended" ] && break
 done
 [ -n "$ended" ] || abort "the watch did not end its temp"
@@ -129,18 +129,18 @@ sleep 45
 say "Relaunch the phone app; watch its writes again"
 rl=$(now)
 "$SIM" launch phone >/dev/null
-logged_within watch "$rl" 'CLOSED — ' 120 || true
+logged_within watch "$rl" 'loan closed' 120 || true
 
 say "Evidence"
-lines phone "$tb" 'SALVAGE' | head -3
-lines phone "$tb" 'write (START|DONE|FAILED)' | cut -c1-200 | head -8
+lines phone "$tb" 'take-back: saving' | head -3
+lines phone "$tb" 'records saved in|saving the watch.s records failed' | cut -c1-200 | head -8
 f=$("$SIM" applog phone)
-grep -A16 "write FAILED" "$f" | grep -E "write FAILED|date =|createdAt =|duration =|doseType =|value =" | head -12
-echo "failed writes before the relaunch: $(lines phone "$tb" 'FAILED: coreDataError' | awk -v r="$rl" '$1 < r' | wc -l | tr -d ' ')"
-echo "failed writes after the relaunch:  $(lines phone "$rl" 'FAILED: coreDataError' | wc -l | tr -d ' ')"
-lines watch "$tb" 'CLOSED — ' | head -1
+grep -A16 "saving the watch's records failed" "$f" | grep -E "records failed|date =|createdAt =|duration =|doseType =|value =" | head -12
+echo "failed writes before the relaunch: $(lines phone "$tb" 'failed.*: coreDataError' | awk -v r="$rl" '$1 < r' | wc -l | tr -d ' ')"
+echo "failed writes after the relaunch:  $(lines phone "$rl" 'failed.*: coreDataError' | wc -l | tr -d ' ')"
+lines watch "$tb" 'loan closed' | head -1
 
 say "Checks"
-expect_none phone "$tb" 'write FAILED' "the phone's writes after the take-back succeed"
-expect watch "$tb" 'CLOSED — ' "the watch's hand-back closed"
+expect_none phone "$tb" 'saving the watch.s records failed' "the phone's writes after the take-back succeed"
+expect watch "$tb" 'loan closed' "the watch's hand-back closed"
 verdict
