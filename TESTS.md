@@ -146,5 +146,7 @@ the End's check clean.
 Add 12 g on the phone: the watch's carb list total goes up 12 g within a minute. A 0.5 U bolus on the watch: the
 chart page's last bolus reads 0.5 U. Start Walking from the watch's Presets: the phone's system log `Set Preset from
 watch`, the Presets sheet shows it active; end it with the crown. `phone away`, `glucose 190`: within 7 minutes the
-chart page shows 19x from the watch's own reading. For a build without Sport Mode: `SPORT_MODE=off tests/run.sh T26`
-on a rig whose apps were built without `SPORT_MODE_ENABLED`.
+chart page shows 19x from the watch's own reading. For a build without Sport Mode: remove `SPORT_MODE_ENABLED` from the
+workspace's `LoopConfigOverride.xcconfig`, build into a rig of its own (`APPS=…/build/dd-off/Build/Products` in its
+`.sims-<rig>`; `sim.sh apps`, then put the file back), install, and run `RIG=<rig> SPORT_MODE=off tests/run.sh T26`.
+Passed 10-26 on rig B (no Sport Mode pages on the watch; every check ok).
