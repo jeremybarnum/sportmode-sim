@@ -177,8 +177,13 @@ start() {
 	# A sensor's reading interval is fixed for its life: at another scale a saved sensor serves no new
 	# readings, so a scale change starts a new one.
 	scale=${TIME_SCALE:-1}; was=$(cat "$run/time-scale" 2>/dev/null || true); echo "$scale" >"$run/time-scale"
+	sensor_age=
 	if [ -n "$was" ] && [ "$was" != "$scale" ] && [ -z "$fresh" ] && ! started g7-sim; then
 		echo "time scale $was → $scale: a new sensor"; fresh=-fresh
+		# With the old one's name and activation: the apps keep reading it, and its readings'
+		# identifiers (activation and timestamp) carry on past the ones they already hold.
+		activation=$(sed -n 's/.*"activation": "\([^"]*\)".*/\1/p' "$run/g7state.json" 2>/dev/null | head -1)
+		[ -n "$activation" ] && sensor_age=$(python3 -c 'import sys, datetime as d; print(int(d.datetime.now(d.timezone.utc).timestamp() - d.datetime.fromisoformat(sys.argv[1]).timestamp()))' "$activation" 2>/dev/null)
 	fi
 	interval=; [ "$scale" -gt 1 ] 2>/dev/null && interval="-interval $((300 / scale))s"
 	started pod-sim || { keep_log pod; nohup "$POD_SIM" -transport impossible -socket $POD_SOCK -api $POD_API \
@@ -187,7 +192,7 @@ start() {
 	# In a subshell for its working directory, which exec hands to the simulator, so nothing is left
 	# holding the terminal.
 	started g7-sim || { keep_log g7; (cd "$run" && exec nohup "$out/g7-sim" -transport impossible -socket $G7_SOCK -api $G7_API \
-		$interval ${DEXCOM_APP:+-dexcom-app} ${fresh:+-fresh -code 4321 -serial 7810293746}) >"$run/g7.log" 2>&1 </dev/null & }
+		$interval ${DEXCOM_APP:+-dexcom-app} ${fresh:+-fresh -code 4321 -serial 7810293746} ${sensor_age:+-age ${sensor_age}s}) >"$run/g7.log" 2>&1 </dev/null & }
 	sleep 1
 	# The mux refuses the socket if another provider (ImpossiBLE's menu bar app?) holds it; its log says.
 	# A radio takes time to bring a link up; at once, an app that launches beside its pod connects

@@ -374,7 +374,9 @@ reset() {
 	say "Reset: everything in range, both apps up, no loan"
 	if pod_wedged; then
 		say "the pod simulator is stuck (a write out of sequence): restarting the simulators, the pod kept"
-		"$SIM" stop >/dev/null 2>&1; "$SIM" start >/dev/null 2>&1 || abort "sim.sh start"
+		# At the rig's own time scale: another would start a new sensor.
+		"$SIM" stop >/dev/null 2>&1
+		TIME_SCALE=$(cat "$RUN/time-scale" 2>/dev/null || echo 1) "$SIM" start >/dev/null 2>&1 || abort "sim.sh start"
 		"$SIM" launch phone >/dev/null; "$SIM" launch watch >/dev/null
 	fi
 	"$SIM" phone back >/dev/null 2>&1 || true
