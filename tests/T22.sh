@@ -97,6 +97,10 @@ done
 say "Checks"
 expect phone "$a" 'grant REFUSED — this phone.s bolus is still being given' "(a) Start refused while the phone's bolus is being given"
 expect_none_between phone "$a" "$a2" 'GRANT — releasing pod' "(a) nothing released by the refused Start"
+# The screens' gate, logged on change: after the refusal the last word before the next Start is "not live".
+gate=$(lines watch "$a" 'stock pages .* loanIsLive=' | awk -v t="$a2" '$1 < t' | tail -1)
+echo "$gate" | grep -q 'loanIsLive=false' && pass "(a) after the refused Start the screens do not act as if a loan were live" "$gate" \
+	|| fail "(a) after the refused Start the screens do not act as if a loan were live" "${gate:-no gate line since $a}"
 expect watch "$a2" 'ACTIVE — epoch' "(a) the Start after the bolus went through"
 expect watch "$b" 'HAND-BACK refused( at the tap)? — a bolus is being given' "(b) End refused while the watch's bolus is being given"
 expect_none_between phone "$b" "$b2" 'offer RX' "(b) no hand-back offer reached the phone during the bolus"

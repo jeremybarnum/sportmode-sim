@@ -36,6 +36,10 @@ sensor), **watch off** = `sim.sh watch off` (the watch shut down; `watch on` boo
 | T25 | A preset started on the watch during a loan, with the phone not told: the watch shows the one its loop doses with, through a relaunch; ended on the watch; the phone has both by the End | validation | presets during a loan, resume | Runs |
 | T26 | The watch with no loan, as the stock watch app: the phone's glucose and insulin on board, the phone's carbs in its carb list, a watch bolus and preset through the phone, its own sensor's reading with the phone away. Also for a build without Sport Mode (`SPORT_MODE=off`) | validation | the watch without a loan | Runs |
 
+A known limit: the checks compare log times of day without dates, so a test that runs across midnight can count a
+line from after midnight as inside an earlier window (seen 10-27 00:00 in T22's "(a) nothing released" check, whose
+line was the next loan's grant). Re-run such a failure.
+
 ## Tiers, and which tests cover what
 
 A run picks its tests by what a change touches: the fast tier always, plus the tests in the rows of the
