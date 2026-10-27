@@ -2,9 +2,10 @@
 # T24 — A command whose answer is lost, then a start without the phone. The pod holds the phone's
 # 0.5 U bolus 15 s before acting on it, and the phone leaves the pod's reach during the hold: the pod
 # gives the bolus, its answer never reaches the phone, and the phone's pod driver keeps the command
-# as unconfirmed. The watch starts without the phone. When the phone is back it stands aside; its
-# first exchange with the pod finds the pod's session count ahead, the sign another device has run
-# it, so its driver drops the command with nothing booked and lets go of the pod. The phone's own
+# as unconfirmed. The watch starts without the phone. When the phone is back it stands aside, its
+# driver keeps the pod, and the phone reads the pod at once: the read finds the pod's session count
+# ahead, the sign another device has run it, so the driver drops the command with nothing booked and
+# lets go of the pod. The phone's own
 # insulin check up to the watch's takeover books the bolus, and the hand-back's check is clean.
 # Needs a pod simulator that answers a stale session count with a resync, as a pod does
 # (LoopKit/pod#25; POD_SIM in the rig's .sims).
@@ -32,12 +33,12 @@ offline_start "$start"
 say "Two watch loop cycles"
 wait_for watch "$start" 'CYCLE VERDICT computed=ok' 720 2
 
-say "Phone back: it stands aside; its first exchange with the pod resyncs"
+say "Phone back: it stands aside and reads the pod, which resyncs"
 back=$(now)
 sim phone back
 wait_for phone "$back" 'RETRO-ACK|YIELDING to an inferred loan' 180
-dropped=$(oslog_wait "$back" "dropped, nothing booked" 300)
-released=$(oslog_wait "$back" "releaseConnection" 120)
+dropped=$(oslog_wait "$back" "dropped, nothing booked" 60)
+released=$(oslog_wait "$back" "releaseConnection" 30)
 
 say "End on the watch"
 sleep 10
@@ -58,6 +59,7 @@ sync=$(pod_lines "$back" 'sending a synchronization failure' | head -1)
 	|| fail "the phone's driver dropped the unconfirmed command, nothing booked" "no such line in the phone's system log since $back"
 refused=$(oslog "$back" "[release] refused" | head -1)
 say "before that, a refusal to let go: ${refused:-none (the resync came first)}" | cut -c1-220
+[ -n "$refused" ] && expect phone "$back" 'reading the pod to settle it' "the phone read the pod at once to settle the command"
 [ -n "$released" ] && pass "the phone's driver let go of the pod" "$released" \
 	|| fail "the phone's driver let go of the pod" "no release in the phone's system log since $back"
 expect phone "$back" 'RETRO-ACK' "the phone adopted the loan"
