@@ -361,6 +361,32 @@ phone_bolus() { # units
 
 # Back to the starting point every test assumes: everything in range, both apps running, the
 # watch idle with Start on screen, the phone holding the pod.
+# The labels on the watch's screen now, one per line, in the element tree's order.
+watch_labels() {
+	"$UI" watch tree >/dev/null 2>&1
+	grep -oE "label: '[^']*'" "$SPORTMODE_UI"/watch.tree | sed "s/^label: '//; s/'\$//"
+}
+# The label after a caption on the watch's screen ("ACTIVE INSULIN" → its value).
+watch_value() { # caption
+	watch_labels | awk -v c="$1" 'found { print; exit } $0 == c { found = 1 }'
+}
+
+# For a build without Sport Mode (SPORT_MODE=off): everything in range and both apps up.
+reset_plain() {
+	say "Reset (no Sport Mode): everything in range, both apps up"
+	"$SIM" phone back >/dev/null 2>&1 || true
+	"$SIM" pod back >/dev/null 2>&1 || true
+	[ -e "$RUN/watch-away" ] && { "$SIM" watch back >/dev/null 2>&1 || true; }
+	"$SIM" link up >/dev/null 2>&1 || true
+	"$SIM" link normal >/dev/null 2>&1 || true
+	running phone || "$SIM" launch phone >/dev/null
+	running watch || "$SIM" launch watch >/dev/null
+	drivers
+	if shows phone "Comms Recovered"; then ui phone tap Continue; sleep 1; fi
+	phone_home
+	watch_close_sheets
+}
+
 # The pod simulator stuck after a message out of sequence: its last word is the write error, and it
 # answers no one until restarted (seen after a test was cut off mid-command).
 pod_wedged() {

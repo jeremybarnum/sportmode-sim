@@ -34,6 +34,7 @@ sensor), **watch off** = `sim.sh watch off` (the watch shut down; `watch on` boo
 | T23 | A watch bolus that reaches the phone after it handed the pod over: refused and not booked | safety | insulin booking | Runs |
 | T24 | A lost answer, then a start without the phone: back, the phone's pod driver drops the unconfirmed command at the resync and lets go; the bolus is booked once | safety | insulin booking, standing aside | Runs with a pod simulator that resyncs (LoopKit/pod#25, POD_SIM); not in a tier until the pinned one does; passes only when an incidental status read reaches the pod within 5 min of the phone's return (see `reference/handoff/NEXTDEV_HANDOFF.md`, finding of 10-26 night) |
 | T25 | A preset started on the watch during a loan, with the phone not told: the watch shows the one its loop doses with, through a relaunch; ended on the watch; the phone has both by the End | validation | presets during a loan, resume | Runs |
+| T26 | The watch with no loan, as the stock watch app: the phone's glucose and insulin on board, the phone's carbs in its carb list, a watch bolus and preset through the phone, its own sensor's reading with the phone away. Also for a build without Sport Mode (`SPORT_MODE=off`) | validation | the watch without a loan | Runs |
 
 ## Tiers, and which tests cover what
 
@@ -43,7 +44,7 @@ mechanisms the change touches (`tests/run.sh fast T6 T8`). The tiers are run set
 - **fast** (`run.sh fast`, also `quick`): T1, T5, T13. An ordinary loan, a take-back, an offline start; catches most breakage.
 - **safety** (`run.sh safety`): T4, T7, T16, T17, T19, T22, T23. A failure could dose wrongly: insulin not counted or
   counted twice, or two devices dosing.
-- **validation** (`run.sh validation`): T3, T6, T8, T10, T11, T18, T25. Everything else that runs.
+- **validation** (`run.sh validation`): T3, T6, T8, T10, T11, T18, T25, T26. Everything else that runs.
 - **long**: tests that sit through real waits (T16 waits out the watch's overdue report). Timed from a full run.
 
 | Mechanism | Tests |
@@ -57,6 +58,7 @@ mechanisms the change touches (`tests/run.sh fast T6 T8`). The tiers are run set
 | The watch off or restarting, resume | T4, T8, T17, T19, T25 |
 | Records (carbs) | T11 |
 | Presets during a loan (the watch shows the loop's; records to the phone) | T25 |
+| The watch without a loan (stock watch behaviour; a build without Sport Mode) | T26 |
 | The watch reading the sensor | any test with a loan running; T6 with the phone away |
 
 ## Steps
@@ -139,3 +141,10 @@ settings, which may not have the preset yet). Tap Presets. Pass: watch `SET-ON-W
 Turn the crown to end it: watch `SET-ON-WRIST · CLEARED` and `CLEARED — schedules resolve unscaled`, and the sheet no
 longer shows it active. End on the watch: the phone's system log `[override] from watch: APPLIED` and `CLEARED`, and
 the End's check clean.
+
+**T26.** No loan. On the watch's chart page: the glucose (within 30 of the sensor's) and the phone's active insulin.
+Add 12 g on the phone: the watch's carb list total goes up 12 g within a minute. A 0.5 U bolus on the watch: the
+chart page's last bolus reads 0.5 U. Start Walking from the watch's Presets: the phone's system log `Set Preset from
+watch`, the Presets sheet shows it active; end it with the crown. `phone away`, `glucose 190`: within 7 minutes the
+chart page shows 19x from the watch's own reading. For a build without Sport Mode: `SPORT_MODE=off tests/run.sh T26`
+on a rig whose apps were built without `SPORT_MODE_ENABLED`.
