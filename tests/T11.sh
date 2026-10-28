@@ -1,6 +1,6 @@
 #!/bin/sh
 # T11 — A carb deleted on the watch during a loan. Delete is offered on Loop's own entries, and
-# the delete reaches the phone at the hand-back.
+# the delete reaches the phone with the next records, during the loan or at the hand-back.
 TEST=T11
 . "$(dirname "$0")/lib.sh"
 set -u
@@ -38,10 +38,10 @@ watch_main
 end=$(now)
 ui watch tap End
 wait_for watch "$end" 'loan closed' 180
-wait_for phone "$end" 'carb delete from the watch' 60
+wait_for phone "$d" 'carb delete from the watch' 60
 
 say "Checks"
 expect watch "$d" 'carb deletion of 13 g recorded' "watch recorded the delete"
-expect phone "$end" 'carb delete from the watch applied: 13 g' "the delete reached the phone"
-expect_none phone "$end" 'carb delete from the watch failed' "the phone applied it"
+expect phone "$d" 'carb delete from the watch applied: 13 g' "the delete reached the phone"
+expect_none phone "$d" 'carb delete from the watch failed' "the phone applied it"
 verdict

@@ -1,0 +1,785 @@
+From b793220defcdeca430266611714d02da6efbe9ad Mon Sep 17 00:00:00 2001
+From: Simulator testing <sim-testing@localhost>
+Date: Tue, 27 Oct 2026 18:38:36 -0400
+Subject: [PATCH] Bench layer for the harness: log files, the watch log to the
+ phone, the debug page
+
+---
+ Loop.xcodeproj/project.pbxproj                |  12 +
+ Loop/Managers/PhoneLog.swift                  |  47 +++-
+ .../PodLoan/WatchDataManager+PodLoan.swift    |  24 +-
+ .../StockLoop/DeviceLogThrottle.swift         |  47 ++++
+ .../StockLoop/LoanDebugView.swift             | 247 ++++++++++++++++++
+ .../StockLoop/RuntimeStateLog.swift           |  75 ++++++
+ WatchApp Extension/StockLoop/SportLog.swift   |  89 ++++++-
+ .../StockLoop/StockLoopSession.swift          |  37 +++
+ .../StockLoop/WatchLoopManager+Glucose.swift  |  12 +
+ .../StockLoop/WatchLoopManager.swift          |   3 +
+ WatchApp/ContentView.swift                    |   6 +
+ 11 files changed, 594 insertions(+), 5 deletions(-)
+ create mode 100644 WatchApp Extension/StockLoop/DeviceLogThrottle.swift
+ create mode 100644 WatchApp Extension/StockLoop/LoanDebugView.swift
+ create mode 100644 WatchApp Extension/StockLoop/RuntimeStateLog.swift
+
+diff --git a/Loop.xcodeproj/project.pbxproj b/Loop.xcodeproj/project.pbxproj
+index e56c4cb5..ca772127 100644
+--- a/Loop.xcodeproj/project.pbxproj
++++ b/Loop.xcodeproj/project.pbxproj
+@@ -7,6 +7,9 @@
+ 	objects = {
+ 
+ /* Begin PBXBuildFile section */
++		9D70FCCAA141489A9E49ADA6 /* RuntimeStateLog.swift in Sources */ = {isa = PBXBuildFile; fileRef = F520419E66CD453A809324D1 /* RuntimeStateLog.swift */; };
++		29E7925FADC442E78B1BFA79 /* LoanDebugView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E7B75623E2144089A0471809 /* LoanDebugView.swift */; };
++		54CB774C12C6459DB3AFF5C2 /* DeviceLogThrottle.swift in Sources */ = {isa = PBXBuildFile; fileRef = A40BA18B2486452C8083B70A /* DeviceLogThrottle.swift */; };
+ 		527427E1C81FAB157FEEA18B /* BolusDosingDecision.swift in Sources */ = {isa = PBXBuildFile; fileRef = A9FB75F0252BE320004C7D3F /* BolusDosingDecision.swift */; };
+ 		B2F374A7AC2458B5AC5CE371 /* BolusDosingDecision.swift in Sources */ = {isa = PBXBuildFile; fileRef = A9FB75F0252BE320004C7D3F /* BolusDosingDecision.swift */; };
+ 		3EC6DF601CC5B95DD71BB52D /* TempBasalRecommendation.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1F2CAA92B76B3EE00D7F581 /* TempBasalRecommendation.swift */; };
+@@ -953,6 +956,9 @@
+ /* End PBXCopyFilesBuildPhase section */
+ 
+ /* Begin PBXFileReference section */
++		F520419E66CD453A809324D1 /* RuntimeStateLog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = RuntimeStateLog.swift; path = "WatchApp Extension/StockLoop/RuntimeStateLog.swift"; sourceTree = SOURCE_ROOT; };
++		E7B75623E2144089A0471809 /* LoanDebugView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = LoanDebugView.swift; path = "WatchApp Extension/StockLoop/LoanDebugView.swift"; sourceTree = SOURCE_ROOT; };
++		A40BA18B2486452C8083B70A /* DeviceLogThrottle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = DeviceLogThrottle.swift; path = "WatchApp Extension/StockLoop/DeviceLogThrottle.swift"; sourceTree = SOURCE_ROOT; };
+ 		00A28F30399B460CABF4EDD2 /* SettingsProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsProvider.swift; sourceTree = "<group>"; };
+ 		036B897A66F14CAA9CD5CAD0 /* PodLoanWatchController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = PodLoanWatchController.swift; path = "WatchApp Extension/StockLoop/PodLoanWatchController.swift"; sourceTree = SOURCE_ROOT; };
+ 		5B7EDF8F4E611C98701399C6 /* CarbAndBolusFlow+PodLoan.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "CarbAndBolusFlow+PodLoan.swift"; path = "WatchApp Extension/StockLoop/CarbAndBolusFlow+PodLoan.swift"; sourceTree = SOURCE_ROOT; };
+@@ -2702,6 +2708,9 @@
+ 				28ADB7DA9E28C018C4707191 /* PodLoanWatchController+Handback.swift */,
+ 				A113A845D5DDEEDA9A76D9AD /* PodLoanWatchController+Debug.swift */,
+ 				4D15E99F644E4E50A306CA01 /* StockLoopSession.swift */,
++				F520419E66CD453A809324D1 /* RuntimeStateLog.swift */,
++				E7B75623E2144089A0471809 /* LoanDebugView.swift */,
++				A40BA18B2486452C8083B70A /* DeviceLogThrottle.swift */,
+ 				F23412C23E024F9A9399C435 /* StockLoopStack.swift */,
+ 				AD49ED34A3CE3A86BEFB048E /* WatchPumpManagers.swift */,
+ 				D0861EE8E371426287E4542F /* LoanTransport.swift */,
+@@ -4192,6 +4201,9 @@
+ 				4826A7044A3346FBA450497A /* PodLoanWatchController+Handback.swift in Sources */,
+ 				2497B7839C12276E55320CFF /* PodLoanWatchController+Debug.swift in Sources */,
+ 				BC5C47547CCB49F9BA618108 /* StockLoopSession.swift in Sources */,
++				9D70FCCAA141489A9E49ADA6 /* RuntimeStateLog.swift in Sources */,
++				29E7925FADC442E78B1BFA79 /* LoanDebugView.swift in Sources */,
++				54CB774C12C6459DB3AFF5C2 /* DeviceLogThrottle.swift in Sources */,
+ 				335CB5BBEBED4922B20C0CEC /* StockLoopStack.swift in Sources */,
+ 				C0D6128D55F7237079C42112 /* WatchPumpManagers.swift in Sources */,
+ 				C1275DD62E808E2F0013B99D /* LoopWatchApp.swift in Sources */,
+diff --git a/Loop/Managers/PhoneLog.swift b/Loop/Managers/PhoneLog.swift
+index d92ed562..d7431513 100644
+--- a/Loop/Managers/PhoneLog.swift
++++ b/Loop/Managers/PhoneLog.swift
+@@ -2,7 +2,7 @@
+ //  PhoneLog.swift
+ //  Loop
+ //
+-//  Sport Mode's log on the phone, through Loop's diagnostic log. Each line carries a [category].
++//  Bench only: the phone's Sport Mode log, also appended to a file in Documents.
+ //
+ 
+ import Foundation
+@@ -10,8 +10,53 @@ import Foundation
+ enum PhoneLog {
+     private static let log = DiagnosticLog(category: "SportMode")
+ 
++    /// Serial, so lines land in order.
++    private static let queue = DispatchQueue(label: "com.loopkit.Loop.phoneLog", qos: .utility)
++
++    private static let stamp: DateFormatter = {
++        let f = DateFormatter()
++        f.dateFormat = "yyyy-MM-dd HH:mm:ss.SSS"
++        return f
++    }()
++
+     /// `category` names the part of Sport Mode the line is about.
+     static func event(_ category: String, _ message: String) {
+         log.default("[%{public}@] %{public}@", category, message)
++        let line = "\(stamp.string(from: Date())) [\(category)] \(message)"
++        queue.async {
++            appendLocally(line)
++        }
++    }
++
++    private static var localURL: URL? {
++        guard let dir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first else { return nil }
++        return dir.appendingPathComponent("g7phone-latest.log")
++    }
++
++    /// Rotate at 2 MB down to 1 MB, so rotation stays rare.
++    private static let maxBytes: UInt64 = 2 * 1024 * 1024
++    private static let trimToBytes = 1024 * 1024
++
++    /// Failures are swallowed: logging must never disturb a loan.
++    private static func appendLocally(_ line: String) {
++        guard let url = localURL else { return }
++        let data = Data((line + "\n").utf8)
++        var size: UInt64 = 0
++        if let handle = try? FileHandle(forWritingTo: url) {
++            defer { try? handle.close() }
++            size = (try? handle.seekToEnd()) ?? 0
++            try? handle.write(contentsOf: data)
++        } else {
++            try? data.write(to: url)
++        }
++        if size > maxBytes { rotate(url) }
++    }
++
++    private static func rotate(_ url: URL) {
++        guard let all = try? Data(contentsOf: url), all.count > trimToBytes else { return }
++        var slice = all.suffix(trimToBytes)
++        // Drop the partial first line so the file always starts on a record boundary.
++        if let nl = slice.firstIndex(of: 0x0a) { slice = slice[slice.index(after: nl)...] }
++        try? Data(slice).write(to: url)
+     }
+ }
+diff --git a/Loop/Managers/PodLoan/WatchDataManager+PodLoan.swift b/Loop/Managers/PodLoan/WatchDataManager+PodLoan.swift
+index 68fb0a91..fc0b68aa 100644
+--- a/Loop/Managers/PodLoan/WatchDataManager+PodLoan.swift
++++ b/Loop/Managers/PodLoan/WatchDataManager+PodLoan.swift
+@@ -144,7 +144,9 @@ extension WatchDataManager {
+ 
+     /// A loan's history, read at once (the system deletes the file on return) for the stores.
+     nonisolated func session(_ session: WCSession, didReceive file: WCSessionFile) {
+-        guard FeatureFlags.sportModeEnabled, file.metadata?["kind"] as? String == LoanHistory.fileKind else { return }
++        guard FeatureFlags.sportModeEnabled else { return }
++        if file.metadata?["kind"] as? String == "g7watch.log" { keepWatchLog(file); return }
++        guard file.metadata?["kind"] as? String == LoanHistory.fileKind else { return }
+         do {
+             let transfer = try LoanHistory.decode(Data(contentsOf: file.fileURL))
+             Task { @MainActor in self.podLoanController.handleWatchLoanHistory(transfer) }
+@@ -153,6 +155,26 @@ extension WatchDataManager {
+         }
+     }
+ 
++    /// Bench only: the watch's log, copied at once to Documents for AirDrop; the newest 20 kept.
++    nonisolated private func keepWatchLog(_ file: WCSessionFile) {
++        let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
++        let formatter = DateFormatter()
++        formatter.dateFormat = "yyyyMMdd-HHmmss"
++        let stamped = docs.appendingPathComponent("g7watch-\(formatter.string(from: Date())).log")
++        try? FileManager.default.copyItem(at: file.fileURL, to: stamped)
++        let latest = docs.appendingPathComponent("g7watch-latest.log")
++        try? FileManager.default.removeItem(at: latest)
++        try? FileManager.default.copyItem(at: file.fileURL, to: latest)
++        if let entries = try? FileManager.default.contentsOfDirectory(at: docs, includingPropertiesForKeys: nil) {
++            let stampedLogs = entries
++                .filter { $0.pathExtension == "log" && $0.lastPathComponent.hasPrefix("g7watch-") && $0.lastPathComponent != "g7watch-latest.log" }
++                .sorted { $0.lastPathComponent > $1.lastPathComponent }
++            for old in stampedLogs.dropFirst(20) {
++                try? FileManager.default.removeItem(at: old)
++            }
++        }
++    }
++
+     // MARK: - Watch state transitions
+ 
+     /// Logs the moment isWatchAppInstalled or pairing changes; when false, WatchConnectivity
+diff --git a/WatchApp Extension/StockLoop/DeviceLogThrottle.swift b/WatchApp Extension/StockLoop/DeviceLogThrottle.swift
+new file mode 100644
+index 00000000..b7740058
+--- /dev/null
++++ b/WatchApp Extension/StockLoop/DeviceLogThrottle.swift	
+@@ -0,0 +1,47 @@
++//
++//  DeviceLogThrottle.swift
++//  WatchApp Extension
++//
++//  Copyright © 2026 LoopKit Authors. All rights reserved.
++//
++//  Counts repeated device-log lines instead of writing them; the count rides the next distinct line.
++//
++
++import Foundation
++
++/// Called from several queues at once, so all state is behind the lock.
++final class DeviceLogThrottle {
++    static let window: TimeInterval = 2.0
++
++    enum Verdict: Equatable {
++        /// Write this line, and say that `flushing` identical lines were suppressed before it.
++        case write(flushing: Int)
++
++        case suppress
++    }
++
++    private let lock = NSLock()
++    private var lastLine = ""
++    private var lastAt = Date.distantPast
++    private var suppressedCount = 0
++
++    func admit(_ line: String, at now: Date) -> Verdict {
++        lock.lock()
++        defer { lock.unlock() }
++
++        if line == lastLine, now.timeIntervalSince(lastAt) < Self.window {
++            suppressedCount += 1
++
++            // The window SLIDES from the most recent repeat, so a continuous storm stays
++            // collapsed for as long as it lasts rather than leaking a line every two seconds.
++            lastAt = now
++            return .suppress
++        }
++
++        let flushing = suppressedCount
++        suppressedCount = 0
++        lastLine = line
++        lastAt = now
++        return .write(flushing: flushing)
++    }
++}
+diff --git a/WatchApp Extension/StockLoop/LoanDebugView.swift b/WatchApp Extension/StockLoop/LoanDebugView.swift
+new file mode 100644
+index 00000000..31004dc0
+--- /dev/null
++++ b/WatchApp Extension/StockLoop/LoanDebugView.swift	
+@@ -0,0 +1,247 @@
++//
++//  LoanDebugView.swift
++//  WatchApp
++//
++//  The Sport Mode diagnostics page. It reads published mirrors only, never the loop or loan
++//  queues.
++//
++
++import Foundation
++import SwiftUI
++import WatchKit
++import WatchConnectivity
++import HealthKit
++import LoopKit
++import G7SensorKit
++
++/// The CGM's view of its sensor, taken whole at tick time from what the manager publishes.
++struct CGMHealth {
++    let sensorName: String?
++    let lastReadingAge: TimeInterval?
++
++    let bgLine: String
++    let lifecycle: String
++    let expiresIn: String
++    let needsCodeFor: String?
++    let isSearching: Bool
++
++    init(_ manager: G7CGMManager) {
++        sensorName = manager.sensorName
++        needsCodeFor = manager.needsCodeForSensor
++        isSearching = manager.isSearchingForSensor
++        lastReadingAge = manager.latestReadingTimestamp.map { Date().timeIntervalSince($0) }
++        if let g = manager.latestReading?.glucose, let t = manager.latestReadingTimestamp {
++            let f = DateFormatter(); f.dateFormat = "HH:mm:ss"
++            bgLine = String(format: "%d mg/dL · %@ (%.0fs ago)", Int(g), f.string(from: t), Date().timeIntervalSince(t))
++        } else {
++            bgLine = "—"
++        }
++        lifecycle = String(describing: manager.lifecycleState)
++        if let expiry = manager.sensorExpiresAt {
++            let hours = expiry.timeIntervalSinceNow / 3600
++            expiresIn = hours > 0 ? String(format: "%.1f h", hours) : "expired"
++        } else {
++            expiresIn = "—"
++        }
++    }
++}
++
++struct LoanDebugView: View {
++    @State private var snapshot: PodLoanWatchController.DebugSnapshot?
++    @State private var cgm: CGMHealth?
++    @State private var lastAction: String = "—"
++
++    @State private var iobText: String = "—"
++
++    @State private var dosing: WatchLoopManager.GlanceData?
++    @State private var cobText: String = "—"
++
++    private let refresh = Timer.publish(every: 2, on: .main, in: .common).autoconnect()
++
++    /// Always `sharedIfAvailable()`: under the SwiftUI lifecycle `WKApplication.shared().delegate`
++    /// is nil.
++    private var session: StockLoopSession? {
++        ExtensionDelegate.sharedIfAvailable()?.stockLoopSession
++    }
++
++    var body: some View {
++        NavigationStack {
++        ScrollView {
++            VStack(alignment: .leading, spacing: 4) {
++                Text("build \(BuildDetails.default.codeIdentity)")
++                    .font(.footnote).foregroundColor(.secondary)
++                Text("DOSING").font(.footnote).foregroundColor(.secondary)
++                row("closed?", (dosing?.closedLoopEnabled ?? false) ? "YES" : "no")
++                row("BG now", dosing?.glucose.map { String(format: "%.0f", $0.doubleValue(for: .milligramsPerDeciliter)) } ?? "—")
++                // The DOSING block is the automatic loop's last run, not the glance's display run.
++                row("eventual", dosing?.dosingEventual.map { String(format: "%.0f", $0.doubleValue(for: .milligramsPerDeciliter)) } ?? "—")
++                predictionReconciliation
++                row("COB / IOB", "\(cobText) / \(iobText)")
++                row("recommend", dosing?.recommendedTempRate.map { String(format: "%+.2f U/hr", $0) } ?? "—")
++                row("running", dosing?.tempRate.map { String(format: "%+.2f U/hr net", $0) } ?? "none (scheduled)")
++                row("last loop", dosing?.lastLoopCompleted.map { String(format: "%.0fs ago", Date().timeIntervalSince($0)) } ?? "—")
++                if let err = dosing?.lastLoopErrorText { row("loop err", err) }
++
++                Divider().padding(.vertical, 2)
++
++                Text("LOAN").font(.footnote).foregroundColor(.secondary)
++
++                row("phase", snapshot.map { String(describing: $0.phase) } ?? "—")
++                row("epoch", snapshot?.epoch.map(String.init) ?? "—")
++                row("pump", (snapshot?.hasPumpManager ?? false) ? "constructed" : "nil")
++                row("odometer", snapshot?.deliveredUnits.map { String(format: "%.2f U", $0) } ?? "—")
++                row("loop IOB", iobText)
++                row("fault", snapshot?.podFault ?? "none")
++                row("last seq", snapshot.map { String($0.lastEventSeq) } ?? "—")
++                row("unacked", snapshot.map { String($0.unackedCount) } ?? "—")
++                row("last act", lastAction)
++
++                Divider().padding(.vertical, 2)
++
++                Text("POD LOAN").font(.footnote).foregroundColor(.secondary)
++
++                Button("Read Pod Status") {
++                    lastAction = "reading…"
++                    session?.loanController.debugReadStatus { ok in
++                        DispatchQueue.main.async {
++                            switch ok {
++                            case .some(true): lastAction = "pod status OK"
++                            case .some(false): lastAction = "pod UNREACHABLE"
++                            case .none: lastAction = "no pod (not in a loan)"
++                            }
++                        }
++                    }
++                }
++
++                Divider().padding(.vertical, 2)
++
++                Text("CGM HEALTH").font(.footnote).foregroundColor(.secondary)
++                row("sensor", cgm?.sensorName ?? "none")
++                row("last reading", cgm?.lastReadingAge.map { String(format: "%.0fs ago", $0) } ?? "never")
++                row("bg", cgm?.bgLine ?? "—")
++                row("state", cgm?.lifecycle ?? "—")
++                row("expires", cgm?.expiresIn ?? "—")
++
++                if let needs = G7WatchDirectRead.needsCodeNote(for: cgm?.needsCodeFor) {
++                    Text(needs).font(.caption2).foregroundColor(.red)
++                }
++                if let searching = G7WatchDirectRead.searchingNote(cgm?.isSearching ?? false) {
++                    Text(searching).font(.caption2).foregroundColor(.orange)
++                }
++
++                Divider().padding(.vertical, 2)
++
++                NavigationLink("Logs") { LogView() }
++                    .font(.caption)
++            }
++        }
++        }
++        .onReceive(refresh) { _ in
++            tick()
++        }
++        .onAppear {
++            tick()
++        }
++    }
++
++    /// Reads the controller, and asks the loop to rebuild its glance snapshot; keeps the old values on nil.
++    private func tick() {
++        snapshot = session?.loanController.debugSnapshot() ?? snapshot
++        cgm = (WatchCGMHost.shared.cgmManager as? G7CGMManager).map(CGMHealth.init) ?? cgm
++
++        session?.stack.loopManager.refreshGlanceData()
++        if let gd = session?.stack.loopManager.glanceData {
++            dosing = gd
++            iobText = gd.dosingIOB.map { String(format: "%.2f U", $0) } ?? "—"
++            cobText = gd.dosingCOB.map { String(format: "%.0f g", $0) } ?? "—"
++        }
++    }
++
++    /// Eventual glucose by effect; `r` is the unexplained remainder.
++    @ViewBuilder
++    private var predictionReconciliation: some View {
++        if let b = dosing?.predictionBreakdown {
++            let s = WatchLoopManager.PredictionBreakdown.round0(b.startMgdl)
++            let ins = WatchLoopManager.PredictionBreakdown.round0(b.insulinMgdl)
++            let carb = WatchLoopManager.PredictionBreakdown.round0(b.carbMgdl)
++            let mom = WatchLoopManager.PredictionBreakdown.round0(b.momentumMgdl)
++            let rc = WatchLoopManager.PredictionBreakdown.round0(b.retrospectiveMgdl)
++            let ev = WatchLoopManager.PredictionBreakdown.round0(b.eventualMgdl)
++            let r = WatchLoopManager.PredictionBreakdown.round0(ev - (s + ins + carb + mom + rc))
++            Text(String(format: "%.0f ins%+.0f carb%+.0f mom%+.0f RC%+.0f r%+.0f = %.0f",
++                        s, ins, carb, mom, rc, r, ev))
++                .font(.system(size: 11, design: .monospaced))
++                .frame(maxWidth: .infinity, alignment: .leading)
++
++            Text(String(format: "RC model: %@ · %d discrepanc%@",
++                        (dosing?.retrospectiveCorrectionIsIntegral ?? false) ? "Integral" : "Standard",
++                        dosing?.retrospectiveDiscrepancyCount ?? 0,
++                        (dosing?.retrospectiveDiscrepancyCount ?? 0) == 1 ? "y" : "ies"))
++                .font(.system(size: 11, design: .monospaced))
++                .foregroundColor(.secondary)
++                .frame(maxWidth: .infinity, alignment: .leading)
++        } else {
++            Text("— no prediction to reconcile")
++                .font(.system(size: 11, design: .monospaced))
++                .foregroundColor(.secondary)
++                .frame(maxWidth: .infinity, alignment: .leading)
++        }
++    }
++
++    private func row(_ label: String, _ value: String) -> some View {
++        HStack {
++            Text(label).font(.caption2).foregroundColor(.secondary)
++            Spacer()
++            Text(value).font(.caption2)
++        }
++    }
++}
++
++/// The wrist's log: tail, share, or send to the phone.
++struct LogView: View {
++    @State private var text: String = ""
++    @State private var sendNote: String?
++
++    var body: some View {
++        ScrollView {
++            VStack(alignment: .leading, spacing: 6) {
++                Button {
++                    if let url = LogFile.url {
++                        // The phone files the transfer by this kind.
++                        WCSession.default.transferFile(url, metadata: ["kind": "g7watch.log"])
++                        sendNote = "queued — appears in iPhone Files app (Loop folder)"
++                    }
++                } label: {
++                    Label("Send Log to iPhone", systemImage: "iphone.and.arrow.forward")
++                }
++                .font(.caption)
++                if let note = sendNote {
++                    Text(note).font(.system(size: 10)).foregroundColor(.secondary)
++                }
++
++                ShareLink(item: text) {
++                    Label("Share log", systemImage: "square.and.arrow.up")
++                }
++                .font(.caption)
++
++                Button("Refresh") { load() }
++                    .font(.caption)
++
++                Text(text.isEmpty ? "no log yet" : text)
++                    .font(.system(size: 11, design: .monospaced))
++                    .foregroundColor(.secondary)
++                    .frame(maxWidth: .infinity, alignment: .leading)
++            }
++            .padding(.horizontal, 2)
++        }
++        .navigationTitle("Logs")
++        .onAppear(perform: load)
++    }
++
++    /// Newest first.
++    private func load() {
++        let tail = LogFile.tail()
++        text = tail.split(separator: "\n", omittingEmptySubsequences: false)
++            .reversed().joined(separator: "\n")
++    }
++}
+diff --git a/WatchApp Extension/StockLoop/RuntimeStateLog.swift b/WatchApp Extension/StockLoop/RuntimeStateLog.swift
+new file mode 100644
+index 00000000..44999a0a
+--- /dev/null
++++ b/WatchApp Extension/StockLoop/RuntimeStateLog.swift	
+@@ -0,0 +1,75 @@
++//
++//  RuntimeStateLog.swift
++//  WatchApp Extension
++//
++//  The app's run state, for decisions that depend on it.
++//
++
++import Foundation
++import WatchKit
++
++enum RuntimeStateLog {
++    /// .inactive and .background behave differently for runtime, so they stay distinct.
++    static func appStateName() -> String {
++        switch WKExtension.shared().applicationState {
++        case .active:     return "active"
++        case .inactive:   return "inactive"
++        case .background: return "background"
++        @unknown default: return "unknown"
++        }
++    }
++
++    /// App state and Low Power Mode.
++    static func snapshot() -> String {
++        let lowPower = ProcessInfo.processInfo.isLowPowerModeEnabled ? " · LOW-POWER" : ""
++        return "state \(appStateName())\(lowPower)"
++    }
++
++    // MARK: - Bench only: a 30 s heartbeat that logs suspension gaps during a loan
++
++    private static var timer: DispatchSourceTimer?
++    private static var lastTick = Date()
++    private static var lastTickState = "unknown"
++    private static var lastBackgroundProof = Date.distantPast
++    private static let interval: TimeInterval = 30
++    private static let tolerance: TimeInterval = 45
++    private static let backgroundProofInterval: TimeInterval = 120
++
++    /// Silent while running; a GAP line names the state the app went down in and woke in.
++    static func startHeartbeat() {
++        stopHeartbeat()
++        lastTick = Date()
++        lastTickState = appStateName()
++        lastBackgroundProof = .distantPast
++        let t = DispatchSource.makeTimerSource(queue: .global(qos: .utility))
++        t.schedule(deadline: .now() + interval, repeating: interval, leeway: .seconds(2))
++        t.setEventHandler {
++            let now = Date()
++            let gap = now.timeIntervalSince(lastTick)
++            let wentDownIn = lastTickState
++            lastTick = now
++            let state = appStateName()
++            lastTickState = state
++
++            if gap > tolerance {
++                SportLog.event("runtime", String(format:
++                    "GAP %.0fs (expected %.0fs) — app was NOT executing · went down in state %@ · woke in %@ · %@",
++                    gap, interval, wentDownIn, state, snapshot()))
++                return
++            }
++
++            if state == "background", now.timeIntervalSince(lastBackgroundProof) >= backgroundProofInterval {
++                lastBackgroundProof = now
++                SportLog.event("runtime", "BG-ALIVE — executing while backgrounded · \(snapshot())")
++            }
++        }
++        t.resume()
++        timer = t
++        SportLog.event("runtime", "heartbeat armed (30s; gaps >45s + BG-ALIVE every 2min while backgrounded) · \(snapshot())")
++    }
++
++    static func stopHeartbeat() {
++        timer?.cancel()
++        timer = nil
++    }
++}
+diff --git a/WatchApp Extension/StockLoop/SportLog.swift b/WatchApp Extension/StockLoop/SportLog.swift
+index c6c7414f..c2b13a35 100644
+--- a/WatchApp Extension/StockLoop/SportLog.swift	
++++ b/WatchApp Extension/StockLoop/SportLog.swift	
+@@ -2,18 +2,101 @@
+ //  SportLog.swift
+ //  WatchApp Extension
+ //
+-//  Sport Mode's log on the watch, through the watch app's log. Each line carries a [category].
++//  The watch's log file (Documents; tailed and shared by the diagnostics page, sent to the
++//  phone). Each line starts with the timestamp and carries a [category]; append fields rather
++//  than reshaping lines, and log milestones, not per-reading traffic.
+ //
+ 
+ import Foundation
+ import os.log
++import WatchKit
++
++// Milliseconds: most questions are about ordering within a burst.
++private let logFmt: DateFormatter = {
++    let f = DateFormatter()
++    f.dateFormat = "yyyy-MM-dd HH:mm:ss.SSS"
++    return f
++}()
++
++/// Stamped at the call, not at the write.
++func log(_ items: Any...) {
++    let msg = items.map { "\($0)" }.joined(separator: " ")
++    let line = "\(logFmt.string(from: Date())) \(msg)"
++    NSLog("%@", line)
++    LogFile.append(line)
++}
++
++/// A fixed-shape battery token for recurring lines; a negative level reads as "?".
++func batteryTag() -> String {
++    let dev = WKInterfaceDevice.current()
++    dev.isBatteryMonitoringEnabled = true
++    let lvl = dev.batteryLevel
++    let st: String
++    switch dev.batteryState {
++    case .charging:  st = "chg"
++    case .full:      st = "full"
++    case .unplugged: st = "batt"
++    default:         st = "?"
++    }
++    return lvl < 0 ? "pwr ?/\(st)" : "pwr \(Int(lvl * 100))%/\(st)"
++}
++
++/// In Documents, capped at 512 KB and rotated to 256 KB.
++enum LogFile {
++    static let url: URL? = FileManager.default
++        .urls(for: .documentDirectory, in: .userDomainMask).first?
++        .appendingPathComponent("g7watch.log")
++
++    /// Serial, so lines cannot interleave and a `tail` can never read a half-finished rotation.
++    private static let queue = DispatchQueue(label: "com.loopkit.Loop.LogFile")
++    private static let maxBytes: UInt64 = 512 * 1024
++    private static let trimToBytes = 256 * 1024
++
++    /// Never blocks the caller.
++    static func append(_ line: String) {
++        guard let url else { return }
++        let data = Data((line + "\n").utf8)
++        queue.async {
++            var size: UInt64 = 0
++            if let h = try? FileHandle(forWritingTo: url) {
++                size = (try? h.seekToEnd()) ?? 0
++                try? h.write(contentsOf: data)
++                try? h.close()
++            } else {
++                try? data.write(to: url)
++            }
++            if size > maxBytes { rotate(url) }
++        }
++    }
++
++    /// Keeps the newest bytes, starting on a line boundary.
++    private static func rotate(_ url: URL) {
++        guard let all = try? Data(contentsOf: url), all.count > trimToBytes else { return }
++        var slice = all.suffix(trimToBytes)
++        if let nl = slice.firstIndex(of: 0x0a) { slice = slice[slice.index(after: nl)...] }
++        try? Data(slice).write(to: url)
++    }
++
++    /// On the writer queue, so it cannot see a rotation in progress.
++    static func tail(maxBytes: Int = 24 * 1024) -> String {
++        return queue.sync {
++            guard let url, let all = try? Data(contentsOf: url) else { return "" }
++            var slice = all.suffix(maxBytes)
++            if all.count > maxBytes, let nl = slice.firstIndex(of: 0x0a) {
++                slice = slice[slice.index(after: nl)...]
++            }
++            return String(decoding: slice, as: UTF8.self)
++        }
++    }
++}
+ 
+ enum SportLog {
+-    private static let log = OSLog(category: "SportMode")
++    private static let oslog = OSLog(category: "SportMode")
+ 
+     /// `category` names the part of Sport Mode the line is about.
+     static func event(_ category: String, _ message: String) {
+-        log.default("[%{public}@] %{public}@", category, message)
++        oslog.default("[%{public}@] %{public}@", category, message)
++        log("[\(category)] \(message)")
+     }
+ 
+     private static let lastLock = NSLock()
+diff --git a/WatchApp Extension/StockLoop/StockLoopSession.swift b/WatchApp Extension/StockLoop/StockLoopSession.swift
+index c9d2b6aa..32f8219c 100644
+--- a/WatchApp Extension/StockLoop/StockLoopSession.swift	
++++ b/WatchApp Extension/StockLoop/StockLoopSession.swift	
+@@ -116,7 +116,16 @@ final class StockLoopSession {
+                 LoopStallWatchdog.refresh()
+ 
+                 NotificationCenter.default.post(name: .podLoanPhaseDidChange, object: nil)
++
++
++                self.startLogPulse()
++                RuntimeStateLog.startHeartbeat()
+             } else {
++                self.stopLogPulse()
++                RuntimeStateLog.stopHeartbeat()
++                self.sendLogSnapshot("loan end")
++
++
+                 LoopStallWatchdog.disarm()
+ 
+                 // Loop mode is per session.
+@@ -132,6 +141,34 @@ final class StockLoopSession {
+         SportLog.event("session", "Sport Mode ready, build \(BuildDetails.default.codeIdentity)")
+     }
+ 
++    // MARK: - Bench only: the watch's log file to the phone
++
++    /// Queued file transfer to the phone; the reason is logged first.
++    func sendLogSnapshot(_ reason: String) {
++        guard WCSession.default.activationState == .activated, let url = LogFile.url else { return }
++        SportLog.event("log", "snapshot → iPhone (\(reason))")
++        WCSession.default.transferFile(url, metadata: ["kind": "g7watch.log"])
++    }
++
++    private var logPulse: DispatchSourceTimer?
++
++    /// Every five minutes during a loan. Its lateness is data.
++    private func startLogPulse() {
++        stopLogPulse()
++        let timer = DispatchSource.makeTimerSource(queue: .main)
++        timer.schedule(deadline: .now() + 300, repeating: 300, leeway: .seconds(20))
++        timer.setEventHandler { [weak self] in
++            self?.sendLogSnapshot("loan pulse")
++        }
++        timer.resume()
++        logPulse = timer
++    }
++
++    private func stopLogPulse() {
++        logPulse?.cancel()
++        logPulse = nil
++    }
++
+     /// false: not loan traffic; the caller continues with stock handling. From the link's thread.
+     nonisolated func handleIncomingIfLoanMessage(_ userInfo: [String: Any]) -> Bool {
+         guard userInfo[LoanProtocol.userInfoKey] != nil else { return false }
+diff --git a/WatchApp Extension/StockLoop/WatchLoopManager+Glucose.swift b/WatchApp Extension/StockLoop/WatchLoopManager+Glucose.swift
+index 595416f2..0dd1be1a 100644
+--- a/WatchApp Extension/StockLoop/WatchLoopManager+Glucose.swift	
++++ b/WatchApp Extension/StockLoop/WatchLoopManager+Glucose.swift	
+@@ -33,6 +33,18 @@ extension WatchLoopManager {
+             log.default("Triggering loop from new CGM data at %{public}@", String(describing: now))
+             checkPumpDataAndLoop()
+         }
++
++        Self.queueLogTransferThrottled()
++    }
++
++    /// Bench only: the log file to the phone every 4.5 minutes, deliberately not 5: readings land
++    /// every ~4.98-5.0 min, so a 5-minute gate would skip alternate transfers.
++    private static var lastLogTransfer = Date.distantPast
++    static func queueLogTransferThrottled() {
++        guard Date().timeIntervalSince(lastLogTransfer) > 4.5 * 60 else { return }
++        guard WCSession.default.activationState == .activated, let url = LogFile.url else { return }
++        lastLogTransfer = Date()
++        WCSession.default.transferFile(url, metadata: ["kind": "g7watch.log"])
+     }
+ 
+     /// Stock `DeviceDataManager.receivedUnreliableCGMReading`: with the sensor's data unreliable, a
+diff --git a/WatchApp Extension/StockLoop/WatchLoopManager.swift b/WatchApp Extension/StockLoop/WatchLoopManager.swift
+index 3ddaf76c..f3e3f364 100644
+--- a/WatchApp Extension/StockLoop/WatchLoopManager.swift	
++++ b/WatchApp Extension/StockLoop/WatchLoopManager.swift	
+@@ -126,6 +126,9 @@ final class WatchLoopManager {
+     /// Fired when the wrist opens the loop (closed to open), where stock ends a pre-meal preset.
+     var onLoopOpened: (() -> Void)?
+ 
++    /// Bench only: the device-log lines copied into the log file, throttled.
++    let deviceLogThrottle = DeviceLogThrottle()
++
+     /// The manual bolus being sent, stamped at confirm, so the glance can narrate the wait for the pod.
+     private var manualBolusInFlight: (startedAt: Date, units: Double?)?
+ 
+diff --git a/WatchApp/ContentView.swift b/WatchApp/ContentView.swift
+index 4f89264c..2768fa26 100644
+--- a/WatchApp/ContentView.swift
++++ b/WatchApp/ContentView.swift
+@@ -49,6 +49,12 @@ struct ContentView: View {
+                         .tag(Self.sportPage)
+                 }
+ 
++                // Bench only: diagnostics.
++                if FeatureFlags.sportModeEnabled {
++                    LoanDebugView()
++                        .tag(Self.sportPage + 1)
++                }
++
+                 // While the watch reads the CGM itself.
+                 if WatchCGMHost.shared.isReadingDirectly {
+                     WatchSensorView()
+-- 
+2.54.0 (Apple Git-157)
+

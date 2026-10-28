@@ -21,6 +21,7 @@
 //   sys [s] <label>      tap a button the system draws over the app: an alert (phone), a notification (watch)
 //   systype <text>       type into a system sheet, such as the passcode (phone); \n for return
 //   tree                 the app's element tree, to <side>.tree
+//   shot                 a screenshot of the app, to <side>.png
 //   quit                 end the test
 //
 // A command line is "<id> <verb> <argument>"; the result is "<id> ok|fail <message>".
@@ -179,6 +180,10 @@ final class Driver: XCTestCase {
         case "tree":
             write("tree", app.debugDescription)
             return (true, "tree written")
+        case "shot":
+            // The screen as the app draws it, where the Simulator's own capture comes out black.
+            try? app.screenshot().pngRepresentation.write(to: dir.appendingPathComponent("\(side).png"))
+            return (true, "screenshot written")
         default:
             return (false, "unknown command \(verb)")
         }

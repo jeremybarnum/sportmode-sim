@@ -1,4 +1,4 @@
-From c2861bddff62e2502b3d04e7cd30e04ae1b40d25 Mon Sep 17 00:00:00 2001
+From 16829eee6a93e7973d6d80e58ff2da346f353496 Mon Sep 17 00:00:00 2001
 From: Jeremy Barnum <prefer not to supply>
 Date: Tue, 20 Oct 2026 14:36:19 -0400
 Subject: [PATCH] A time scale for Simulator testing, behind a build flag
@@ -31,7 +31,7 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>
  6 files changed, 40 insertions(+), 8 deletions(-)
 
 diff --git a/Loop/Managers/DeviceDataManager.swift b/Loop/Managers/DeviceDataManager.swift
-index 570d8de5..431582b7 100644
+index ab332677..4ca4f30d 100644
 --- a/Loop/Managers/DeviceDataManager.swift
 +++ b/Loop/Managers/DeviceDataManager.swift
 @@ -652,7 +652,7 @@ final class DeviceDataManager {
@@ -43,7 +43,7 @@ index 570d8de5..431582b7 100644
              self.log.default("Triggering Loop from refreshCGM() — new glucose stored")
              await self.checkPumpDataAndLoop()
          }
-@@ -971,7 +971,7 @@ extension DeviceDataManager: CGMManagerDelegate {
+@@ -963,7 +963,7 @@ extension DeviceDataManager: CGMManagerDelegate {
              let now = Date()
              // A CGM can re-deliver readings the store already holds (Nightscout polls do, every
              // poll). Only a reading that was actually stored is a reason to run the loop.
@@ -53,10 +53,10 @@ index 570d8de5..431582b7 100644
                  self.lastCGMLoopTrigger = now
                  await self.checkPumpDataAndLoop()
 diff --git a/Loop/Managers/PodLoanPhoneController+Grant.swift b/Loop/Managers/PodLoanPhoneController+Grant.swift
-index 2e26ec47..94d9f70f 100644
+index 5203562f..ee66b988 100644
 --- a/Loop/Managers/PodLoanPhoneController+Grant.swift
 +++ b/Loop/Managers/PodLoanPhoneController+Grant.swift
-@@ -326,10 +326,10 @@ extension PodLoanPhoneController {
+@@ -286,10 +286,10 @@ extension PodLoanPhoneController {
      }
  
      /// Floor on unprompted refreshes (~25 KB each).
@@ -70,10 +70,10 @@ index 2e26ec47..94d9f70f 100644
      /// Everything in the settings the wrist would behave differently on.
      private static func settingsFingerprint(_ s: LoopSettings) -> String {
 diff --git a/Loop/Managers/PodLoanPhoneController+Settle.swift b/Loop/Managers/PodLoanPhoneController+Settle.swift
-index b3cc3276..f1b937c4 100644
+index 461a34f7..e98e1f26 100644
 --- a/Loop/Managers/PodLoanPhoneController+Settle.swift
 +++ b/Loop/Managers/PodLoanPhoneController+Settle.swift
-@@ -17,7 +17,7 @@ import os.log
+@@ -16,7 +16,7 @@ import UserNotifications
  extension PodLoanPhoneController {
  
      /// Ceiling on the settle; also bounds how long a grant can be refused as not-yet-ready.
@@ -83,10 +83,10 @@ index b3cc3276..f1b937c4 100644
      /// A typical settle; the progress bar is drawn against it.
      static let reclaimSettleExpectation: TimeInterval = 10
 diff --git a/LoopCore/PodLoan/LoanControl.swift b/LoopCore/PodLoan/LoanControl.swift
-index 64d2b1fb..94fc2bfd 100644
+index 2d134f3e..e1901d76 100644
 --- a/LoopCore/PodLoan/LoanControl.swift
 +++ b/LoopCore/PodLoan/LoanControl.swift
-@@ -191,8 +191,29 @@ public enum LoanControl {
+@@ -197,8 +197,29 @@ public enum LoanControl {
          }
      }
  
@@ -119,10 +119,10 @@ index 64d2b1fb..94fc2bfd 100644
      /// How long a takeover has to reach the pod, for a grant and for an offline start alike. Every
      /// takeover seen reached the pod within 25 s, most within 4; a pod not reached in a minute was
 diff --git a/LoopTests/LoanControlTests.swift b/LoopTests/LoanControlTests.swift
-index 4f13b6bd..a2098c47 100644
+index b3fda833..c973295c 100644
 --- a/LoopTests/LoanControlTests.swift
 +++ b/LoopTests/LoanControlTests.swift
-@@ -143,4 +143,15 @@ final class LoanControlTests: XCTestCase {
+@@ -145,4 +145,15 @@ final class LoanControlTests: XCTestCase {
          XCTAssertEqual(C.Wait.inBackground.seconds, 30)
          XCTAssertEqual(C.watchReportOverdue, 6 * 60)
      }
@@ -139,18 +139,18 @@ index 4f13b6bd..a2098c47 100644
 +    }
  }
 diff --git a/WatchApp Extension/StockLoop/WatchLoopManager.swift b/WatchApp Extension/StockLoop/WatchLoopManager.swift
-index f9a7cb5b..22101d6f 100644
+index 8919b7bb..3ddaf76c 100644
 --- a/WatchApp Extension/StockLoop/WatchLoopManager.swift	
 +++ b/WatchApp Extension/StockLoop/WatchLoopManager.swift	
-@@ -553,7 +553,7 @@ final class WatchLoopManager {
+@@ -492,7 +492,7 @@ final class WatchLoopManager {
+ 
+     /// Stock's 4.2-minute gate, checked and claimed in one step: true means this caller runs the cycle.
      func claimCGMLoopTrigger(at now: Date) -> Bool {
-         cgmLoopTriggerLock.lock()
-         defer { cgmLoopTriggerLock.unlock() }
 -        guard now.timeIntervalSince(lastCGMLoopTrigger) > .minutes(4.2) else { return false }
 +        guard now.timeIntervalSince(lastCGMLoopTrigger) > LoanControl.scaled(.minutes(4.2)) else { return false }
          lastCGMLoopTrigger = now
          return true
      }
 -- 
-2.50.1 (Apple Git-155)
+2.54.0 (Apple Git-157)
 
