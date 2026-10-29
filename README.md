@@ -5,6 +5,12 @@ Simulators, a simulated pod and a simulated sensor on the Mac. The Sport Mode be
 with the phone and the watch going out of reach, the watch shutting down and the pod going out of
 reach all done by commands. [TESTS.md](TESTS.md) has each test's steps.
 
+**What to test:** the branch `next-dev-SportMode-PRs` of
+[jeremybarnum/LoopWorkspace](https://github.com/jeremybarnum/LoopWorkspace/tree/next-dev-SportMode-PRs).
+It holds every open Sport Mode pull request together (the Loop pull request and the ones stacked on it,
+with their LoopKit, OmnipodKit, G7SensorKit and service changes), so a run here tests what is under
+review. `SportMode-bench` is the developer's day-to-day build, ahead of the pull requests at times.
+
 It is built on LoopKit's pod simulator and G7 simulator and the ImpossiBLE Bluetooth shim, with
 changes to each, on these forks:
 
@@ -19,8 +25,7 @@ changes to each, on these forks:
 ## Setup
 
 Needs a Mac with Xcode and its iOS and watchOS Simulator runtimes, Go (to build the simulators and
-the mux), xcodegen (`brew install xcodegen`, for the tap drivers), and a LoopWorkspace checkout of a
-Sport Mode branch, for example:
+the mux), xcodegen (`brew install xcodegen`, for the tap drivers), and a LoopWorkspace checkout:
 
 ```sh
 git clone https://github.com/jeremybarnum/LoopWorkspace ~/src/LoopWorkspace   # tree.sh fetches the submodules
@@ -29,42 +34,54 @@ git clone https://github.com/jeremybarnum/LoopWorkspace ~/src/LoopWorkspace   # 
 Then, from this repository:
 
 ```sh
-./tree.sh ~/src/LoopWorkspace SportMode-bench   # the branch to test, plus the Simulator aids (below)
+./tree.sh ~/src/LoopWorkspace next-dev-SportMode-PRs   # the branch to test, plus the Simulator aids (below)
 ./sim.sh build        # clones and builds the simulators, the mux and the libraries into build/
 ./sim.sh sims         # creates and pairs "Sport Mode Phone" and "Sport Mode Watch" (ids in .sims)
 WORKSPACE=~/src/LoopWorkspace ./sim.sh apps   # builds Loop's phone and watch apps for them
 ./sim.sh install
-./sim.sh start -fresh # a new pod and sensor
+TIME_SCALE=5 ./sim.sh start -fresh   # a new pod and sensor; the time scale is optional (Faster runs)
 ./sim.sh launch phone
 ```
 
 `tree.sh` checks out the superproject branch from the checkout's origin (or keeps the current one when
 none is named) on a local branch `sim-testing`, and applies the Simulator-only aids as local commits;
 nothing is pushed, and nothing of the aids reaches a device build. The aids for the next-dev line
-(`aids/next-dev`) are three:
+(`aids/next-dev`) are four:
 - **The watch bolus by double tap.** A watch bolus is confirmed by turning the crown, which a test cannot
   do on that screen in the Simulator; a double tap confirms it in Simulator builds.
 - **The time scale**, behind the `SIMULATED_TIME_SCALE_ENABLED` flag (see Faster runs).
+- **The harness's logging**: log files the checks read, the watch's log sent to the phone, and a debug
+  page on the watch.
 - **Sport Mode on**: `SPORT_MODE_ENABLED` and the watch's entitlements (its workout session and
-  time-sensitive notifications) in `LoopConfigOverride.xcconfig`.
+  time-sensitive notifications) in `LoopConfigOverride.xcconfig`. `next-dev-SportMode-PRs` already has
+  them; the aid adds only what is missing.
+
+An aid that no longer applies to the branch stops `tree.sh` with "the aid needs a version for it".
 
 **Onboard the phone once** (the Simulators keep it), by hand in the Simulator window or with `ui.sh`:
-- On Welcome, hold the Loop logo for 3 s (2 s is not enough): setup is skipped with example settings.
-  Allow Health access ("Turn On All", Allow), and close "Turn On Alarms": a Simulator app cannot have
-  critical alerts, so it comes up at each launch.
-- CGM: Dexcom G7, Pair Sensor, "Sensor Is On, Continue", "Enter Code by Hand": 4321, Continue; then
-  Not Now for Dexcom Share.
-- Pump: Omnipod, Continue, Next, Next, an insulin, Continue, Omnipod DASH, Confirm Pod Type, Pair pod;
-  after priming Continue, Continue, Confirm; slide to insert the cannula, Continue, Yes, Finish Setup.
+- On Welcome, hold the Loop logo for 3 s (2 s is not enough; `ui.sh phone pressxy 201 337 3.5`):
+  setup is skipped with example settings. At the first tap after that, allow Health access ("Turn On
+  All", Allow), and close "Turn On Alarms": a Simulator app cannot have critical alerts, so it comes up
+  at each launch.
+- CGM: tap the CGM status at the top left, "Dexcom G7 / ONE+", Pair Sensor, "Sensor Is On, Continue",
+  "Enter Code by Hand": 4321, Continue; then Not Now for Dexcom Share.
+- Pump: tap the pump status at the top right, Omnipod, Continue, Next, Next, an insulin, Continue,
+  Omnipod DASH, Confirm Pod Type, then the "Pair pod." button at the bottom; after priming Continue,
+  Continue, Confirm; slide to insert the cannula, Continue, **Yes** when asked about the cannula site
+  (No leads to deactivating the pod), Finish Setup. The buttons at the bottom of the pod screens carry
+  sentence labels ("Pod paired successfully. Continue."), so with `ui.sh` tap them by those.
 - Settings: switch Closed Loop on (the switch at the right of its row; a tap on the label does not
   toggle it), then Done. The skipped setup leaves it off, and the tests expect the loop closed.
 
 Then `./sim.sh launch watch`, and `./sim.sh launch phone` again: the phone sees a watch app installed
-after it only at its next launch (its log then shows `appInstalled=true`). If it still logs
-`appInstalled=false`, install the phone app again with the pair booted (`sim.sh install` keeps its data) and
-relaunch it. Then, in the G7's settings on the phone, switch **Read on Apple Watch** on: the watch reads the
+after it only at its next launch. The link is up when the watch's log shows the phone's data arriving
+(`./sim.sh log watch` has lines with `src=phone`). If it does not, install the apps again with the pair
+booted (`sim.sh install` keeps their data) and relaunch both. Then, in the G7's settings on the phone
+(tap the CGM status), switch **Read on Apple Watch** on, under Apple Watch: the watch reads the
 sensor itself only with it, and Sport Mode refuses to start without it. Before the first Start wait
 for the watch to read the sensor. A bolus on the phone asks the Simulator's passcode: 0000.
+
+Then `./tests/run.sh quick` (about 5 minutes at scale 5) shows the rig works.
 
 ## Commands
 
@@ -110,7 +127,8 @@ both apps up, no loan), does the taps and the situations, waits on the apps' log
 test's pass lines, and ends in PASS or FAIL. `tests/run.sh` runs all of them in a row (or the ones
 named) and keeps each one's output under `build/results/`.
 
-Scripted: T1, T3–T11, T13, T16–T19, T22, T23. T9's six hours are simulated by aging the watch's saved last pod
+Scripted: T1, T3–T11, T13, T16–T19, T22–T26 (T24 needs a pod simulator that resyncs; see
+TESTS.md). T9's six hours are simulated by aging the watch's saved last pod
 reading while it is off. Not scripted: T2 (no way to cause it), T12 (opportunistic), T14 (a tap
 within a second of the watch waking), T15 (a clarifying test for the hardware emulator).
 
@@ -118,7 +136,8 @@ within a second of the watch waking), T15 (a clarifying test for the hardware em
 an ordinary loan (takeover, records, hand-back, audit), a take-back with the pod out of reach (settle,
 verification, stop), and an offline start whose take stalls (the escalation to a scan). It took 4 min
 14 s at scale 5 (T1 1:13, T5 0:35, T13 2:26). Tests named after it run too: `quick T22`. The full run
-stays the gate before a pull request.
+stays the gate before a pull request. `tests/run.sh safety` and `tests/run.sh validation` run the other
+tiers in TESTS.md.
 
 A fresh watch app gets the phone's standing copy (for an offline start) only after its first
 normal Start, so run a test with a normal Start (T1 or T3) before T6, T7, T10, T13 and T19;

@@ -1,4 +1,4 @@
-From b793220defcdeca430266611714d02da6efbe9ad Mon Sep 17 00:00:00 2001
+From 44453bcaab739ccec263644bcfc4308d40cced21 Mon Sep 17 00:00:00 2001
 From: Simulator testing <sim-testing@localhost>
 Date: Tue, 27 Oct 2026 18:38:36 -0400
 Subject: [PATCH] Bench layer for the harness: log files, the watch log to the
@@ -12,17 +12,17 @@ Subject: [PATCH] Bench layer for the harness: log files, the watch log to the
  .../StockLoop/LoanDebugView.swift             | 247 ++++++++++++++++++
  .../StockLoop/RuntimeStateLog.swift           |  75 ++++++
  WatchApp Extension/StockLoop/SportLog.swift   |  89 ++++++-
- .../StockLoop/StockLoopSession.swift          |  37 +++
+ .../StockLoop/StockLoopSession.swift          |  35 +++
  .../StockLoop/WatchLoopManager+Glucose.swift  |  12 +
  .../StockLoop/WatchLoopManager.swift          |   3 +
  WatchApp/ContentView.swift                    |   6 +
- 11 files changed, 594 insertions(+), 5 deletions(-)
+ 11 files changed, 592 insertions(+), 5 deletions(-)
  create mode 100644 WatchApp Extension/StockLoop/DeviceLogThrottle.swift
  create mode 100644 WatchApp Extension/StockLoop/LoanDebugView.swift
  create mode 100644 WatchApp Extension/StockLoop/RuntimeStateLog.swift
 
 diff --git a/Loop.xcodeproj/project.pbxproj b/Loop.xcodeproj/project.pbxproj
-index e56c4cb5..ca772127 100644
+index d5a77d6c..955b6af3 100644
 --- a/Loop.xcodeproj/project.pbxproj
 +++ b/Loop.xcodeproj/project.pbxproj
 @@ -7,6 +7,9 @@
@@ -35,7 +35,7 @@ index e56c4cb5..ca772127 100644
  		527427E1C81FAB157FEEA18B /* BolusDosingDecision.swift in Sources */ = {isa = PBXBuildFile; fileRef = A9FB75F0252BE320004C7D3F /* BolusDosingDecision.swift */; };
  		B2F374A7AC2458B5AC5CE371 /* BolusDosingDecision.swift in Sources */ = {isa = PBXBuildFile; fileRef = A9FB75F0252BE320004C7D3F /* BolusDosingDecision.swift */; };
  		3EC6DF601CC5B95DD71BB52D /* TempBasalRecommendation.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1F2CAA92B76B3EE00D7F581 /* TempBasalRecommendation.swift */; };
-@@ -953,6 +956,9 @@
+@@ -1040,6 +1043,9 @@
  /* End PBXCopyFilesBuildPhase section */
  
  /* Begin PBXFileReference section */
@@ -43,19 +43,19 @@ index e56c4cb5..ca772127 100644
 +		E7B75623E2144089A0471809 /* LoanDebugView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = LoanDebugView.swift; path = "WatchApp Extension/StockLoop/LoanDebugView.swift"; sourceTree = SOURCE_ROOT; };
 +		A40BA18B2486452C8083B70A /* DeviceLogThrottle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = DeviceLogThrottle.swift; path = "WatchApp Extension/StockLoop/DeviceLogThrottle.swift"; sourceTree = SOURCE_ROOT; };
  		00A28F30399B460CABF4EDD2 /* SettingsProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsProvider.swift; sourceTree = "<group>"; };
- 		036B897A66F14CAA9CD5CAD0 /* PodLoanWatchController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = PodLoanWatchController.swift; path = "WatchApp Extension/StockLoop/PodLoanWatchController.swift"; sourceTree = SOURCE_ROOT; };
- 		5B7EDF8F4E611C98701399C6 /* CarbAndBolusFlow+PodLoan.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "CarbAndBolusFlow+PodLoan.swift"; path = "WatchApp Extension/StockLoop/CarbAndBolusFlow+PodLoan.swift"; sourceTree = SOURCE_ROOT; };
-@@ -2702,6 +2708,9 @@
+ 		891F7590AA92FC7B832160F3 /* LoanRemoteUploadsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoanRemoteUploadsTests.swift; sourceTree = "<group>"; };
+ 		028762051A01C56F4C39A986 /* NightscoutServiceKit.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; path = NightscoutServiceKit.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+@@ -2879,6 +2885,9 @@
  				28ADB7DA9E28C018C4707191 /* PodLoanWatchController+Handback.swift */,
  				A113A845D5DDEEDA9A76D9AD /* PodLoanWatchController+Debug.swift */,
  				4D15E99F644E4E50A306CA01 /* StockLoopSession.swift */,
 +				F520419E66CD453A809324D1 /* RuntimeStateLog.swift */,
 +				E7B75623E2144089A0471809 /* LoanDebugView.swift */,
 +				A40BA18B2486452C8083B70A /* DeviceLogThrottle.swift */,
+ 				533D4A039573750D44A23B29 /* LoanPushSender.swift */,
+ 				B998F036B1AFE137CE755FB6 /* LoanRemoteUploads.swift */,
  				F23412C23E024F9A9399C435 /* StockLoopStack.swift */,
- 				AD49ED34A3CE3A86BEFB048E /* WatchPumpManagers.swift */,
- 				D0861EE8E371426287E4542F /* LoanTransport.swift */,
-@@ -4192,6 +4201,9 @@
+@@ -4536,6 +4545,9 @@
  				4826A7044A3346FBA450497A /* PodLoanWatchController+Handback.swift in Sources */,
  				2497B7839C12276E55320CFF /* PodLoanWatchController+Debug.swift in Sources */,
  				BC5C47547CCB49F9BA618108 /* StockLoopSession.swift in Sources */,
@@ -671,14 +671,13 @@ index c6c7414f..c2b13a35 100644
  
      private static let lastLock = NSLock()
 diff --git a/WatchApp Extension/StockLoop/StockLoopSession.swift b/WatchApp Extension/StockLoop/StockLoopSession.swift
-index c9d2b6aa..32f8219c 100644
+index 22d68052..7ab171a0 100644
 --- a/WatchApp Extension/StockLoop/StockLoopSession.swift	
 +++ b/WatchApp Extension/StockLoop/StockLoopSession.swift	
-@@ -116,7 +116,16 @@ final class StockLoopSession {
-                 LoopStallWatchdog.refresh()
+@@ -119,7 +119,14 @@ final class StockLoopSession {
  
-                 NotificationCenter.default.post(name: .podLoanPhaseDidChange, object: nil)
-+
+                 // Uploads, when the Start grant carried service configurations.
+                 LoanRemoteUploads.shared.begin(loopManager: self.stack.loopManager)
 +
 +                self.startLogPulse()
 +                RuntimeStateLog.startHeartbeat()
@@ -687,11 +686,10 @@ index c9d2b6aa..32f8219c 100644
 +                RuntimeStateLog.stopHeartbeat()
 +                self.sendLogSnapshot("loan end")
 +
-+
+                 // Normally already done by teardownPump.
+                 LoanRemoteUploads.shared.end()
                  LoopStallWatchdog.disarm()
- 
-                 // Loop mode is per session.
-@@ -132,6 +141,34 @@ final class StockLoopSession {
+@@ -137,6 +144,34 @@ final class StockLoopSession {
          SportLog.event("session", "Sport Mode ready, build \(BuildDetails.default.codeIdentity)")
      }
  
@@ -727,7 +725,7 @@ index c9d2b6aa..32f8219c 100644
      nonisolated func handleIncomingIfLoanMessage(_ userInfo: [String: Any]) -> Bool {
          guard userInfo[LoanProtocol.userInfoKey] != nil else { return false }
 diff --git a/WatchApp Extension/StockLoop/WatchLoopManager+Glucose.swift b/WatchApp Extension/StockLoop/WatchLoopManager+Glucose.swift
-index 595416f2..0dd1be1a 100644
+index ef77fe72..45d9568c 100644
 --- a/WatchApp Extension/StockLoop/WatchLoopManager+Glucose.swift	
 +++ b/WatchApp Extension/StockLoop/WatchLoopManager+Glucose.swift	
 @@ -33,6 +33,18 @@ extension WatchLoopManager {
@@ -781,5 +779,5 @@ index 4f89264c..2768fa26 100644
                  if WatchCGMHost.shared.isReadingDirectly {
                      WatchSensorView()
 -- 
-2.54.0 (Apple Git-157)
+2.50.1 (Apple Git-155)
 
