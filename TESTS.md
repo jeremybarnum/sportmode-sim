@@ -35,6 +35,8 @@ sensor), **watch off** = `sim.sh watch off` (the watch shut down; `watch on` boo
 | T24 | A lost answer, then a start without the phone: back, the phone stands aside and reads the pod at once; its pod driver drops the unconfirmed command at the resync and lets go within a minute; the bolus is booked once | safety | insulin booking, standing aside | Runs with a pod simulator that resyncs (LoopKit/pod#25, POD_SIM); not in a tier until the pinned one does |
 | T25 | A preset started on the watch during a loan, with the phone not told: the watch shows the one its loop doses with, through a relaunch; ended on the watch; the phone has both by the End | validation | presets during a loan, resume | Runs |
 | T26 | The watch with no loan, as the stock watch app: the phone's glucose and insulin on board, the phone's carbs in its carb list, a watch bolus and preset through the phone, its own sensor's reading with the phone away. Also for a build without Sport Mode (`SPORT_MODE=off`) | validation | the watch without a loan | Runs |
+| T27 | No program crosses a Start: the watch cancels any temp at the takeover and doses nothing until the next sensor reading; after an offline Start the cancel stops the phone's low temp | safety | Start (takeover) | Runs |
+| T28 | A Start the watch never confirms: the phone asks nothing and takes the pod back at its first cycle after the grant's 60 s lease; the watch never takes the pod | safety | Start (grant), Take Back | Runs |
 
 A known limit: the checks compare log times of day without dates, so a test that runs across midnight can count a
 line from after midnight as inside an earlier window (seen 10-27 00:00 in T22's "(a) nothing released" check, whose
@@ -46,19 +48,19 @@ A run picks its tests by what a change touches: the fast tier always, plus the t
 mechanisms the change touches (`tests/run.sh fast T6 T8`). The tiers are run sets of `tests/run.sh`.
 
 - **fast** (`run.sh fast`, also `quick`): T1, T5, T13. An ordinary loan, a take-back, an offline start; catches most breakage.
-- **safety** (`run.sh safety`): T4, T7, T16, T17, T19, T22, T23. A failure could dose wrongly: insulin not counted or
+- **safety** (`run.sh safety`): T4, T7, T16, T17, T19, T22, T23, T27, T28. A failure could dose wrongly: insulin not counted or
   counted twice, or two devices dosing.
 - **validation** (`run.sh validation`): T3, T6, T8, T10, T11, T18, T25, T26. Everything else that runs.
 - **long**: tests that sit through real waits (T16 waits out the watch's overdue report). Timed from a full run.
 
 | Mechanism | Tests |
 |---|---|
-| Start with the phone near (grant, takeover) | T1, and every test that starts a normal loan |
+| Start with the phone near (grant, takeover) | T1, T27, T28, and every test that starts a normal loan |
 | End on the watch (hand-back, insulin check) | T1, T18 |
-| Take Back on the phone | T3, T5, T16, T17 |
+| Take Back on the phone | T3, T5, T16, T17, T28 |
 | Nobody takes the pod mid-bolus (or with a command unconfirmed) | T22, T24 |
 | Insulin booking (estimates, records replacing them) | T4, T7, T23 |
-| Offline Start | T6, T7, T10, T13, T19 |
+| Offline Start | T6, T7, T10, T13, T19, T27 |
 | The watch off or restarting, resume | T4, T8, T17, T19, T25 |
 | Records (carbs) | T11 |
 | Presets during a loan (the watch shows the loop's; records to the phone) | T25 |
@@ -154,3 +156,12 @@ chart page shows 19x from the watch's own reading. For a build without Sport Mod
 workspace's `LoopConfigOverride.xcconfig`, build into a rig of its own (`APPS=…/build/dd-off/Build/Products` in its
 `.sims-<rig>`; `sim.sh apps`, then put the file back), install, and run `RIG=<rig> SPORT_MODE=off tests/run.sh T26`.
 Passed 10-26 on rig B (no Sport Mode pages on the watch; every check ok).
+
+**T27.** (a) Start on the watch with the phone running a temp: the watch's takeover sends the pod a cancel and nothing
+else; its first dose comes at the next sensor reading. (b) `phone away`, sensor held low so the phone sets a low
+temp, Start without the phone: the cancel stops that temp on the pod; the watch's first cycle, at the next reading,
+sets its own.
+
+**T28.** `watch away` (pod and sensor out of the watch's reach). Start; once the watch has the grant, `link down`.
+The phone asks the watch nothing and takes the pod back at its first cycle after the 60 s lease, with its notice;
+`link up`, `watch back`: the watch never takes the pod.

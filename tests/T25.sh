@@ -34,6 +34,8 @@ r=$(now)
 sleep 2
 "$SIM" launch watch >/dev/null || abort "the watch app did not relaunch"
 wait_for watch "$r" 'resumed loan [0-9]+' 120
+# The restart check ends at the first sensor reading at least 30 s after asking; End shows after it.
+wait_for watch "$r" 'pump manager rebuilt|stood aside after the resume' 330
 drivers
 sleep 10
 watch_close_sheets

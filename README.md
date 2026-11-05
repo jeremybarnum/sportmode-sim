@@ -127,7 +127,7 @@ both apps up, no loan), does the taps and the situations, waits on the apps' log
 test's pass lines, and ends in PASS or FAIL. `tests/run.sh` runs all of them in a row (or the ones
 named) and keeps each one's output under `build/results/`.
 
-Scripted: T1, T3–T11, T13, T16–T19, T22–T26 (T24 needs a pod simulator that resyncs; see
+Scripted: T1, T3–T11, T13, T16–T19, T22–T28 (T24 needs a pod simulator that resyncs; see
 TESTS.md). T9's six hours are simulated by aging the watch's saved last pod
 reading while it is off. Not scripted: T2 (no way to cause it), T12 (opportunistic), T14 (a tap
 within a second of the watch waking), T15 (a clarifying test for the hardware emulator).
