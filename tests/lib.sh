@@ -190,6 +190,9 @@ wait_reading() { # since seconds [count]
 	done
 }
 
+# Drop the watch's pending sensor connect in the Bluetooth stand-in, telling the watch nothing.
+sim_lose_connect() { "$SIM" watch lose-connect 2>&1; }
+
 # Whether an app is running.
 # The app runs with the Bluetooth stand-in injected. An app the system restarted after a crash runs
 # without it, with no Bluetooth (OmnipodKit then fakes the pod), and counts as not running.

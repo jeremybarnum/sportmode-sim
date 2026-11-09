@@ -25,6 +25,7 @@
 #   sim.sh glucose <mg/dL>|walk <mg/dL>|sine <mg/dL> <amplitude>  what the sensor reads from now on
 #   sim.sh phone radio-off|radio-on  Bluetooth off on the phone (it reads powered off), the watch link up
 #   sim.sh watch off|on     shut the watch Simulator down; boot it and launch the watch app
+#   sim.sh watch lose-connect  the watch's pending sensor connect dropped, the watch told nothing
 #   sim.sh quit phone|watch end the app (a force quit)
 #   sim.sh range            what is out of range now
 #
@@ -50,7 +51,7 @@ sims_file=$here/.sims${RIG:+-$RIG}
 
 # The simulators, at the commits this harness was tested with (LoopKit/g7sim and LoopKit/pod with
 # the changes proposed upstream; g7sim builds ImpossiBLE with its own patches).
-G7SIM=https://github.com/jeremybarnum/g7sim; G7SIM_COMMIT=ee2a13b
+G7SIM=https://github.com/jeremybarnum/g7sim; G7SIM_COMMIT=db5ce7c
 POD=https://github.com/jeremybarnum/pod;     POD_COMMIT=3823843
 
 [ -f "$sims_file" ] && . "$sims_file"
@@ -347,7 +348,9 @@ watch() {
 		# After the watch Simulator reboots, the phone app's queued transfers from the watch stop
 		# arriving until the phone app is restarted (a Simulator quirk): the next reset does it.
 		touch "$run/watch-rebooted" ;;
-	*) echo "watch off|on|away|back" >&2; exit 2 ;;
+	# The system loses the watch's pending connect and never says so (the stand-in's /vanish).
+	lose-connect) curl -s -m 3 -X POST "localhost${MUX_API}/vanish?app=$WATCH_ID"; echo ;;
+	*) echo "watch off|on|away|back|lose-connect" >&2; exit 2 ;;
 	esac
 }
 

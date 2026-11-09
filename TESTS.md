@@ -37,6 +37,7 @@ sensor), **watch off** = `sim.sh watch off` (the watch shut down; `watch on` boo
 | T26 | The watch with no loan, as the stock watch app: the phone's glucose and insulin on board, the phone's carbs in its carb list, a watch bolus and preset through the phone, its own sensor's reading with the phone away. Also for a build without Sport Mode (`SPORT_MODE=off`) | validation | the watch without a loan | Runs |
 | T27 | No program crosses a Start: the watch cancels any temp at the takeover and doses nothing until the next sensor reading; after an offline Start the cancel stops the phone's low temp | safety | Start (takeover) | Runs |
 | T28 | A Start the watch never confirms: the phone asks nothing and takes the pod back at its first cycle after the grant's 60 s lease; the watch never takes the pod | safety | Start (grant), Take Back | Runs |
+| T29 | A sensor connect request the system loses without telling the watch: the watch reads nothing itself (the sensor is the heartbeat, as on the phone); relaunching the watch app repairs it | validation | the watch's own sensor reading | Runs |
 
 A known limit: the checks compare log times of day without dates, so a test that runs across midnight can count a
 line from after midnight as inside an earlier window (seen 10-27 00:00 in T22's "(a) nothing released" check, whose
@@ -165,3 +166,8 @@ sets its own.
 **T28.** `watch away` (pod and sensor out of the watch's reach). Start; once the watch has the grant, `link down`.
 The phone asks the watch nothing and takes the pod back at its first cycle after the 60 s lease, with its notice;
 `link up`, `watch back`: the watch never takes the pod.
+
+**T29.** No loan. Once the watch has read the sensor and placed its next request, `watch lose-connect` (the
+Bluetooth stand-in drops that request and tells the watch nothing, as the system did once on 2026-10-05 after an
+install). For the next two sensor readings the watch reads nothing itself. `launch watch`: it reads again at the next
+reading.
