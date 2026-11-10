@@ -53,21 +53,21 @@ last_bolus=$(watch_value "LAST BOLUS")
 
 say "Walking started on the watch"
 watch_page 1
-ui watch tap presets
+watch_presets
 ui watch wait 10 "Select Preset"
 # The second card, Walking: a card is not a labelled control.
 ui watch tapxy "104 165"
 ui watch wait 10 "Turn Digital Crown to Start"
 p=$(now)
-ui watch crown 1.5
+watch_crown 1.5
 sleep 15
 watch_close_sheets
 watch_page 1
-ui watch tap presets
+watch_presets
 sleep 3
 preset_active=no; shows watch "Turn Digital Crown to End" && preset_active=yes
 e=$(now)
-[ "$preset_active" = yes ] && { ui watch crown 1.5; sleep 15; }
+[ "$preset_active" = yes ] && { watch_crown 1.5; sleep 15; }
 preset_after=no; shows watch "Turn Digital Crown to End" && preset_after=yes
 watch_close_sheets
 

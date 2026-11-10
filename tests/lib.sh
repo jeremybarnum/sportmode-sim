@@ -76,6 +76,16 @@ WATCH_MAIN_PAGE=${WATCH_MAIN_PAGE:-3}
 # alert): dismiss it, or every tap that follows misses.
 dismiss_watch_alert() {
 	"$UI" watch sys 0 Dismiss >/dev/null 2>&1
+	# A build whose watch app holds a workout session through a loan asks for Health write access at
+	# its first loan on an erased watch Simulator; the sheet covers the app until it is answered.
+	if "$UI" watch sys 0 Review >/dev/null 2>&1; then
+		say "the watch asks for Health access: allowing it"
+		sleep 2
+		"$UI" watch sys 0 "All Requested Data Below" >/dev/null 2>&1
+		"$UI" watch swipe up >/dev/null 2>&1; "$UI" watch swipe up >/dev/null 2>&1
+		"$UI" watch sys 0 Done >/dev/null 2>&1 || { "$UI" watch swipe up >/dev/null 2>&1; "$UI" watch sys 0 Done >/dev/null 2>&1; }
+		sleep 2
+	fi
 	return 0
 }
 
@@ -89,6 +99,16 @@ watch_page() { # n
 	while [ "$page" -gt "$1" ]; do ui watch swipe right; page=$((page - 1)); done
 }
 watch_main() { watch_page "$WATCH_MAIN_PAGE"; }
+
+# The crown turned, with any notification in front of the app dismissed first (a predicted low after
+# many tests' boluses), or the turn goes to the notification.
+watch_crown() { dismiss_watch_alert; ui watch crown "$1"; }
+
+# The watch's Presets button, named after its picture: "presets", or "workout" (a heart) on a build
+# that draws it so.
+watch_presets() {
+	"$UI" watch tap presets >/dev/null 2>&1 || ui watch tap workout
+}
 
 # Attach the tap drivers (once per run; a no-op when they answer).
 drivers() {
@@ -300,6 +320,7 @@ watch_bolus() { # units (a multiple of 0.5)
 	shown=$(awk "/label: 'U'\$/ { print prev } { if (match(\$0, /label: '[0-9.]+'/)) prev = substr(\$0, RSTART + 8, RLENGTH - 9) }" "$SPORTMODE_UI"/watch.tree | head -1)
 	say "watch bolus screen shows ${shown:-?} U"
 	t0=$(now)
+	dismiss_watch_alert
 	ui watch tap Bolus
 	ui watch double "Turn Digital"
 	wait_for watch "$t0" "$BOLUS_ACCEPTED" 120
@@ -316,6 +337,7 @@ watch_bolus_send() { # units (a multiple of 0.5)
 	for n in 1 2 3 4; do "$UI" watch tap "−" >/dev/null 2>&1 || break; done
 	n=$(awk -v b="$1" 'BEGIN { printf "%d", b / 0.5 + 0.5 }')
 	while [ "$n" -gt 0 ]; do ui watch tap "+"; n=$((n - 1)); done
+	dismiss_watch_alert
 	ui watch tap Bolus
 	ui watch double "Turn Digital"
 }
@@ -327,6 +349,7 @@ watch_bolus_quick() { # [plus taps]
 	watch_page 1
 	ui watch tap "$WATCH_BOLUS"
 	while [ "$n" -gt 0 ]; do ui watch tap "+"; n=$((n - 1)); done
+	dismiss_watch_alert
 	ui watch tap Bolus
 	ui watch double "Turn Digital"
 }
@@ -341,6 +364,7 @@ watch_bolus_start() { # units (a multiple of 0.5)
 	n=$(awk -v b="$1" 'BEGIN { printf "%d", b / 0.5 + 0.5 }')
 	while [ "$n" -gt 0 ]; do ui watch tap "+"; n=$((n - 1)); done
 	t0=$(now)
+	dismiss_watch_alert
 	ui watch tap Bolus
 	ui watch double "Turn Digital"
 	wait_for watch "$t0" "$BOLUS_ACCEPTED" 120 >/dev/null
@@ -366,7 +390,11 @@ phone_bolus() { # units
 	ui phone tap Done
 	ui phone tap "$PHONE_BOLUS_ACTION"
 	sleep 2
-	[ "$PHONE_PASSCODE" = 1 ] && { "$UI" phone systype '0000\n' >/dev/null 2>&1 || true; }
+	# A build that gives a phone bolus without asking who is holding the phone has left the bolus
+	# screen by now; typing a passcode at no prompt stalls the driver for minutes.
+	if [ "$PHONE_PASSCODE" = 1 ] && shows phone "$PHONE_BOLUS_ACTION"; then
+		"$UI" phone systype '0000\n' >/dev/null 2>&1 || true
+	fi
 	return 0
 }
 
@@ -425,6 +453,9 @@ reset() {
 	if [ -e "$RUN/watch-rebooted" ]; then
 		say "the watch Simulator rebooted since the last reset: the phone app restarts so the watch's queued transfers arrive"
 		"$SIM" launch phone >/dev/null; rm -f "$RUN/watch-rebooted"
+		# The launch returns before the process shows: without the wait the check below launches it
+		# again, and the pair of launches can leave the app without the Bluetooth stand-in.
+		for i in 1 2 3 4 5 6 7 8 9 10; do running phone && break; sleep 1; done
 	fi
 	running phone || { say "the phone app is not running with the Bluetooth stand-in: launching it"; "$SIM" launch phone >/dev/null; }
 	running watch || { say "the watch app is not running with the Bluetooth stand-in: launching it"; "$SIM" launch watch >/dev/null; }

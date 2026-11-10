@@ -29,6 +29,10 @@ sleep 15
 watch_main
 e2=$(now)
 ui watch tap End
+# watchOS can slide its Smart Stack hint up over the app as the phone returns, and a tap made while
+# it moves is lost: seen after a watch Simulator restart. One more tap if the first did nothing.
+for i in 1 2 3 4 5; do "$SIM" since watch "$e2" 'hand-back requested' | grep -q . && break; sleep 1; done
+"$SIM" since watch "$e2" 'hand-back requested' | grep -q . || { say "the End tap did nothing (system hint over the app): tapping again"; ui watch tap End; }
 wait_for watch "$e2" 'loan closed' 180
 wait_for phone "$e2" 'temp cancelled' 120
 

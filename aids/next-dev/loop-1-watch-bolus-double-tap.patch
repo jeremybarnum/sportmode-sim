@@ -1,8 +1,8 @@
-From 2a1dc98173d8affa3bbceb710f9e8b4580ae6bf5 Mon Sep 17 00:00:00 2001
+From 45c2fc32b719d64d01ecd472ac7ddd656c3fd644 Mon Sep 17 00:00:00 2001
 From: Jeremy Barnum <prefer not to supply>
 Date: Mon, 19 Oct 2026 15:20:40 -0400
-Subject: [PATCH] Watch bolus confirm: a double tap stands in for the crown in
- the Simulator
+Subject: [PATCH] Watch bolus confirm: a double tap stands in for the crown
+ in the Simulator
 
 A test run in the Simulator cannot turn the crown, so it could not confirm a
 bolus on the watch. Simulator builds only; nothing changes on a device.
@@ -28,5 +28,5 @@ index aa96ada5..4e5154d7 100644
  
      private var isFinished: Bool { abs(progress.wrappedValue) >= 1.0 }
 -- 
-2.50.1 (Apple Git-155)
+2.54.0 (Apple Git-157)
 

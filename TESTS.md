@@ -26,7 +26,7 @@ sensor), **watch off** = `sim.sh watch off` (the watch shut down; `watch on` boo
 | T13 | A Start after an offline start that failed at the takeover | fast | offline Start, the take escalating to a search | Runs |
 | T14 | A Start within a second of the watch app waking | — | Start | Not run: the first tap after the app comes back is swallowed |
 | T15 | Clarifying: emulator or phone at fault | — | — | Not applicable |
-| T16 | The phone asks a silent watch and takes the pod back itself | safety, long | Take Back on silence | Runs with the phone app in front: a background app is not woken by simulated Bluetooth |
+| T16 | The phone asks a silent watch, tells the looper once and keeps the loan; a tap takes the pod back | safety, long | Silent watch, Take Back | Runs with the phone app in front: a background app is not woken by simulated Bluetooth |
 | T17 | A watch back from off asks before looping; the phone stands it aside | safety | resume, Take Back | Runs |
 | T18 | End on the watch with the phone away: refused on screen after 10 s, loan continues | validation | End with the phone away | Runs |
 | T19 | A revived watch's claim to a loan older than the phone's takeover is refused | safety | resume, offline Start | Runs |
@@ -117,9 +117,11 @@ Pass: phone `carb DELETE from wrist`, `carb DELETE applied on phone`; the entry 
 Pass: phone `lending the pod to the watch` numbered above the watch's loan; watch `grant received`, `loan N active`, no `grant rejected`.
 
 **T16.** Start on the watch; bolus 0.5 U on the watch. `watch off`. Keep the phone app in front; touch nothing for
-about 12 minutes. Pass: phone `asking the watch whether it holds the pod`, about 10 s later `the watch did NOT answer —
-taking the pod back`, `take-back: pod link up`, `take-back check` booking about 0.5 U, `temp cancelled`,
-"Watch Not Looping".
+about 12 minutes, then two more sensor readings. Take the pod back on the phone. `watch on`. Pass: phone `asking the
+watch whether it holds the pod`, then `telling the looper the watch may not be looping` once only, the notification
+"Watch May Not Be Looping", no `taking the pod back: no answer` and no `take-back: pod link up` before the tap; after
+the tap `take-back: pod link up`, `take-back check` booking about 0.5 U, `temp cancelled`; the watch back on stands
+aside before any dose.
 
 **T17.** Start on the watch, one cycle. `watch off`. Take the pod back on the phone and bolus 0.5 U on the phone
 (passcode 0000). `watch on`. Pass: watch `resumed loan`, `told the phone this watch holds the pod`,

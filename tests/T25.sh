@@ -16,13 +16,13 @@ start_loan "$s"
 say "the link to the phone cut; Jogging started on the watch"
 sim link down
 watch_page 1
-ui watch tap presets
+watch_presets
 ui watch wait 10 "Select Preset"
 # The first card, Jogging: a card is not a labelled control.
 ui watch tapxy "104 95"
 ui watch wait 10 "Turn Digital Crown to Start"
 p=$(now)
-ui watch crown 1.5
+watch_crown 1.5
 wait_for watch "$p" 'override .*Jogging in effect' 30
 sleep 3
 watch_close_sheets
@@ -40,14 +40,14 @@ drivers
 sleep 10
 watch_close_sheets
 watch_page 1
-ui watch tap presets
+watch_presets
 sleep 3
 active_shown=no; shows watch "Turn Digital Crown to End" && active_shown=yes
 list_shown=no; shows watch "Select Preset" && list_shown=yes
 
 say "Jogging ended on the watch"
 e=$(now)
-ui watch crown 1.5
+watch_crown 1.5
 wait_for watch "$e" 'override ended' 30
 sleep 3
 active_after=no; shows watch "Turn Digital Crown to End" && active_after=yes
