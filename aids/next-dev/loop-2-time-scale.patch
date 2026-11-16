@@ -1,26 +1,8 @@
-From 8f0cc239ea778a7b8dc24a998b4a5e25590eb9f4 Mon Sep 17 00:00:00 2001
-From: Jeremy Barnum <prefer not to supply>
-Date: Tue, 20 Oct 2026 14:36:19 -0400
+From 82c8dc6a5aa2824d465ec4c74c15eca03010ab1e Mon Sep 17 00:00:00 2001
+From: Simulator testing <sim-testing@localhost>
+Date: Mon, 16 Nov 2026 13:54:20 -0500
 Subject: [PATCH] A time scale for Simulator testing, behind a build flag
 
-A Sport Mode test in the Simulators spends most of its time waiting on
-the apps' own clocks: Loop's 4.2-minute loop rate limit on the phone and
-the watch, the take-back's five-minute settle, the standing copy's
-half-hour refresh, and the cycle part of the watch's report overdue.
-With SIMULATED_TIME_SCALE_ENABLED in the build and SPORTMODE_TIME_SCALE
-in the app's environment, in the Simulator only, those waits are divided
-by the scale. Timestamps are untouched. The answer waits and the takeover
-lease are real latencies and stay as they are, and so does the minute's
-margin in the report overdue, so a resumed watch keeps its time for a
-first pod read.
-
-A device, a build without the flag, an app launched without the
-variable, and the unit tests all see a scale of 1; two tests pin that.
-A full run of the sixteen bench tests took 49 minutes at real time and
-30 at a scale of 5.
-
-Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>
-(cherry picked from commit 66d8a851ea0e6885f68ac301b8f49777616f7f4e)
 ---
  Loop/Managers/DeviceDataManager.swift         |  4 +--
  .../PodLoanPhoneController+Grant.swift        |  4 +--
@@ -31,10 +13,10 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>
  6 files changed, 42 insertions(+), 10 deletions(-)
 
 diff --git a/Loop/Managers/DeviceDataManager.swift b/Loop/Managers/DeviceDataManager.swift
-index 2e78fc7d..c8c168c1 100644
+index 5282db0d..de989e95 100644
 --- a/Loop/Managers/DeviceDataManager.swift
 +++ b/Loop/Managers/DeviceDataManager.swift
-@@ -653,7 +653,7 @@ final class DeviceDataManager {
+@@ -655,7 +655,7 @@ final class DeviceDataManager {
          //  - Keeping the interval floor stops a fast CGM (or the irregular ~2 min heartbeat) from
          //    looping more often than once per ~5 min, matching the push path's rate limit.
          let lastLoopCompleted = self.loopControl.lastLoopCompleted
@@ -43,20 +25,20 @@ index 2e78fc7d..c8c168c1 100644
              self.log.default("Triggering Loop from refreshCGM() — new glucose stored")
              await self.checkPumpDataAndLoop()
          }
-@@ -958,7 +958,7 @@ extension DeviceDataManager: CGMManagerDelegate {
-             let now = Date()
-             // A CGM can re-deliver readings the store already holds (Nightscout polls do, every
-             // poll). Only a reading that was actually stored is a reason to run the loop.
--            if storedNewGlucose, now.timeIntervalSince(self.lastCGMLoopTrigger) > .minutes(4.2) {
-+            if storedNewGlucose, now.timeIntervalSince(self.lastCGMLoopTrigger) > LoanControl.scaled(.minutes(4.2)) {
-                 self.log.default("Triggering loop from new CGM data at %{public}@", String(describing: now))
-                 self.lastCGMLoopTrigger = now
-                 await self.checkPumpDataAndLoop()
+@@ -975,7 +975,7 @@ extension DeviceDataManager: CGMManagerDelegate {
+         let now = Date()
+         // A CGM can re-deliver readings the store already holds (Nightscout polls do, every
+         // poll). Only a reading that was actually stored is a reason to run the loop.
+-        if storedNewGlucose, now.timeIntervalSince(self.lastCGMLoopTrigger) > .minutes(4.2) {
++        if storedNewGlucose, now.timeIntervalSince(self.lastCGMLoopTrigger) > LoanControl.scaled(.minutes(4.2)) {
+             self.log.default("Triggering loop from new CGM data at %{public}@", String(describing: now))
+             self.lastCGMLoopTrigger = now
+             // Not awaited: the manager's next call shouldn't wait for a loop cycle.
 diff --git a/Loop/Managers/PodLoanPhoneController+Grant.swift b/Loop/Managers/PodLoanPhoneController+Grant.swift
-index f4007edb..2ec41d96 100644
+index 593a2e2c..a27cde3d 100644
 --- a/Loop/Managers/PodLoanPhoneController+Grant.swift
 +++ b/Loop/Managers/PodLoanPhoneController+Grant.swift
-@@ -308,10 +308,10 @@ extension PodLoanPhoneController {
+@@ -315,10 +315,10 @@ extension PodLoanPhoneController {
      }
  
      /// Floor on unprompted refreshes (~25 KB each).
@@ -83,10 +65,10 @@ index d33fecfe..f37f5bf6 100644
      /// A typical settle; the progress bar is drawn against it.
      static let reclaimSettleExpectation: TimeInterval = 10
 diff --git a/LoopCore/PodLoan/LoanControl.swift b/LoopCore/PodLoan/LoanControl.swift
-index e726a1c1..e99333c7 100644
+index 40a5003e..b0eaa014 100644
 --- a/LoopCore/PodLoan/LoanControl.swift
 +++ b/LoopCore/PodLoan/LoanControl.swift
-@@ -211,12 +211,33 @@ public enum LoanControl {
+@@ -220,12 +220,33 @@ public enum LoanControl {
          }
      }
  
@@ -125,10 +107,10 @@ index e726a1c1..e99333c7 100644
      /// How long a takeover has to reach the pod, for a grant and for an offline start alike. Every
      /// takeover seen reached the pod within 25 s, most within 4; a pod not reached in a minute was
 diff --git a/LoopTests/LoanControlTests.swift b/LoopTests/LoanControlTests.swift
-index 704a1ba2..7d2f4574 100644
+index 58ae724d..dcc929a4 100644
 --- a/LoopTests/LoanControlTests.swift
 +++ b/LoopTests/LoanControlTests.swift
-@@ -167,4 +167,15 @@ final class LoanControlTests: XCTestCase {
+@@ -169,4 +169,15 @@ final class LoanControlTests: XCTestCase {
          XCTAssertEqual(C.watchReportOverdue, 6 * 60)
          XCTAssertEqual(C.watchSilenceWarning, 20 * 60)
      }
@@ -145,10 +127,10 @@ index 704a1ba2..7d2f4574 100644
 +    }
  }
 diff --git a/WatchApp Extension/StockLoop/WatchLoopManager.swift b/WatchApp Extension/StockLoop/WatchLoopManager.swift
-index 129ce39e..ea965d9b 100644
+index 55eacfcc..2485f261 100644
 --- a/WatchApp Extension/StockLoop/WatchLoopManager.swift	
 +++ b/WatchApp Extension/StockLoop/WatchLoopManager.swift	
-@@ -500,7 +500,7 @@ final class WatchLoopManager {
+@@ -529,7 +529,7 @@ final class WatchLoopManager {
  
      /// Stock's 4.2-minute gate, checked and claimed in one step: true means this caller runs the cycle.
      func claimCGMLoopTrigger(at now: Date) -> Bool {
