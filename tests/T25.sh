@@ -73,6 +73,10 @@ expect watch "$e" 'override ended; schedules apply unscaled' "the loop doses wit
 applied=$(oslog "$p" "preset from the watch applied" | head -1)
 [ -n "$applied" ] && pass "the phone has the preset" "$applied" || fail "the phone has the preset" "no phone line /from watch: APPLIED/ since $p"
 cleared=$(oslog "$e" "preset from the watch ended" | head -1)
+# With the link up the watch also sends stock's preset message: when it arrives first it ends the
+# phone's preset, and the loan's own end is then skipped as already done.
+[ -z "$cleared" ] && oslog "$e" "Set Preset from watch" | grep -q . \
+	&& cleared=$(oslog "$e" "preset end from the watch skipped: this phone has none active" | head -1)
 [ -n "$cleared" ] && pass "the phone has its end" "$cleared" || fail "the phone has its end" "no phone line /from watch: CLEARED/ since $e"
 expect_clean phone "$end" 'hand-back check:' "hand-back's check"
 verdict
