@@ -17,6 +17,9 @@ say "$TEST — a lost answer, a start without the phone, the phone back"
 # Glucose near the target, so no automatic bolus is under way when the watch ends the loan.
 "$SIM" glucose 110 >/dev/null
 reset
+# The reset's reading sets off a loop cycle on the phone: let its commands pass first, so the hold
+# catches the bolus and not the cycle's temp basal.
+pod_quiet 15
 
 say "The pod holds the next command 15 s; a 0.5 U bolus on the phone; the phone out of reach during the hold"
 b=$(now)

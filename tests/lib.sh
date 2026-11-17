@@ -428,6 +428,21 @@ reset_plain() {
 
 # The pod simulator stuck after a message out of sequence: its last word is the write error, and it
 # answers no one until restarted (seen after a test was cut off mid-command).
+# Wait until the pod simulator has taken no command for the seconds given, at most 90 s. A test that
+# makes the pod hold "the next command" means its own, not the loop cycle a reset's reading sets off.
+pod_quiet() { # seconds
+	local _end _ts _last
+	_end=$(($(date +%s) + 90))
+	while [ "$(date +%s)" -lt "$_end" ]; do
+		_ts=$(grep 'pkg command;' "$RUN/pod.log" 2>/dev/null | tail -1 | grep -oE '20[0-9]{2}-[0-9]{2}-[0-9]{2}T[0-9:]{8}')
+		[ -z "$_ts" ] && return 0
+		_last=$(date -j -f '%Y-%m-%dT%H:%M:%S' "$_ts" +%s 2>/dev/null) || return 0
+		[ $(($(date +%s) - _last)) -ge "$1" ] && return 0
+		sleep 2
+	done
+	say "the pod kept taking commands for 90 s: going on"
+}
+
 pod_wedged() {
 	[ -f "$RUN/pod.log" ] || return 1
 	grep -E 'error writing message: expected command|EAP-AKA session SQN|Listening for commands' "$RUN/pod.log" \
