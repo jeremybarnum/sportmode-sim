@@ -16,11 +16,18 @@ say "Phone out of reach; offline start on the watch; two watch cycles"
 sim phone away
 start=$(now)
 offline_start "$start"
-wait_reading "$start" 300 2
+sleep 130
 
-say "Phone back: its driver stops at first contact; it asks the watch and stands aside"
+# The watch's word must not reach the phone before the phone reaches the pod, or the phone stands aside
+# by the ordinary route (its records) and the driver's stop is never exercised: the phone-watch link
+# stays down until the driver has stopped, then comes back and the watch answers.
+say "Phone back with its link to the watch down: its driver stops at first contact"
 pb=$(now)
+sim link down
 sim phone back
+wait_for phone "$pb" 'found another controller using the pod' 400
+say "Link back up: the watch answers and the phone stands aside"
+sim link up
 wait_for phone "$pb" 'standing aside for a loan the watch started without this phone' 300
 sleep 20
 
