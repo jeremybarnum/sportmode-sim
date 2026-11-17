@@ -52,7 +52,7 @@ sims_file=$here/.sims${RIG:+-$RIG}
 # The simulators, at the commits this harness was tested with (LoopKit/g7sim and LoopKit/pod with
 # the changes proposed upstream; g7sim builds ImpossiBLE with its own patches).
 G7SIM=https://github.com/jeremybarnum/g7sim; G7SIM_COMMIT=db5ce7c
-POD=https://github.com/jeremybarnum/pod;     POD_COMMIT=3823843
+POD=https://github.com/jeremybarnum/pod;     POD_COMMIT=d6abe77
 
 [ -f "$sims_file" ] && . "$sims_file"
 # POD_SIM (in a rig's .sims): another pod simulator build for that rig, such as one with a change
@@ -296,14 +296,14 @@ link() {
 	else rm -f "$LINK"; fi
 }
 
-# A sluggish link: each live message arrives N seconds late (still reachable), or on time again.
+# A sluggish link: each live message arrives N seconds late (still reachable), with "large" only those over 2 KB (and their queued copies), or on time again.
 linkcmd() {
 	case "$1" in
-	slow) mkdir -p "$run"; echo "${2:-4}" >"$run/link-slow"; link; echo "link: live messages ${2:-4} s late" ;;
+	slow) mkdir -p "$run"; echo "${2:-4}${3:+ $3}" >"$run/link-slow"; link; echo "link: ${3:+large }live messages ${2:-4} s late" ;;
 	normal) rm -f "$run/link-slow"; link; echo "link: live messages on time" ;;
 	down) mkdir -p "$run"; touch "$run/link-down"; link; echo "link: down (phone and watch each still in reach of the pod and sensor)" ;;
 	up) rm -f "$run/link-down"; link; echo "link: up" ;;
-	*) echo "link slow <s>|normal|down|up" >&2; exit 2 ;;
+	*) echo "link slow <s> [large]|normal|down|up" >&2; exit 2 ;;
 	esac
 }
 
@@ -419,7 +419,7 @@ since)
 phone) phone "${2:-}" ;;
 pod) pod "${2:-}" "${3:-}" ;;
 watch) watch "${2:-}" ;;
-link) linkcmd "${2:-}" "${3:-}" ;;
+link) linkcmd "${2:-}" "${3:-}" "${4:-}" ;;
 range) curl -s -m 3 "localhost${MUX_API}/range"; echo; [ -f "$LINK" ] && echo "link: $(cat "$LINK")" || echo "link: up" ;;
 glucose)
 	case "${2:-}" in

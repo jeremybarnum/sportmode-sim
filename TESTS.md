@@ -38,6 +38,7 @@ sensor), **watch off** = `sim.sh watch off` (the watch shut down; `watch on` boo
 | T27 | No program crosses a Start: the watch cancels any temp at the takeover and doses nothing until the next sensor reading; after an offline Start the cancel stops the phone's low temp | safety | Start (takeover) | Runs |
 | T28 | A Start the watch never confirms: the phone asks nothing and takes the pod back at its first cycle after the grant's 60 s lease; the watch never takes the pod | safety | Start (grant), Take Back | Runs |
 | T29 | A sensor connect request the system loses without telling the watch: the watch reads nothing itself (the sensor is the heartbeat, as on the phone); relaunching the watch app repairs it | validation | the watch's own sensor reading | Runs |
+| T30 | The phone back within minutes of a watch-only Start, the watch alive: the phone's pod driver finds another controller at its first contact and sends the pod nothing; the phone asks the watch and stands aside (control rows 28, 17) | safety | standing aside, the driver's stop | Needs the driver's stop at an unexpected resync (local branch `foreign-session` of OmnipodKit, LoopKit, Loop) and a pod simulator that resyncs |
 
 A known limit: the checks compare log times of day without dates, so a test that runs across midnight can count a
 line from after midnight as inside an earlier window (seen 10-27 00:00 in T22's "(a) nothing released" check, whose
@@ -137,7 +138,7 @@ at its first reading the phone books the insulin and keeps the pod. `watch on`. 
 
 **T23.** A watch bolus that reaches the phone after it has handed the pod over. (1) `watch away` (the watch's radio
 out of range, its link to the phone up); Start on the watch; after the phone's `lending the pod to the watch`, a 1 U bolus on the watch,
-which goes to the phone; `watch back`. (2) `link slow 8`; Start, then at once a 1 U bolus on the watch, which arrives
+which goes to the phone; `watch back`. (2) `link slow 8 large` (only the grant is slowed: the watch waits 6 s for the request's answer); Start, then at once a 1 U bolus on the watch, which arrives
 after the grant. Pass, for each: the phone's system log `Refusing watch bolus while the pod is on loan`, a phone
 notification "Bolus Not Delivered", the pod's total not moved by it, no `MANUAL BOLUS` on the phone, the loan
 `loan N active` and its End's check clean. The watch's bolus is a live message, and the phone drops one over 30 s old, so a

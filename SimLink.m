@@ -4,7 +4,9 @@
 // Bluetooth or Wi-Fi to turn off. Injected into both apps (DYLD_INSERT_LIBRARIES,
 // beside ImpossiBLE), this library reads a control file shared by the two
 // Simulators: "down" puts the phone out of the watch's reach, "slow N" delivers
-// each live message N seconds late (a sluggish link, still reachable), anything
+// each live message N seconds late (a sluggish link, still reachable), "slow N large"
+// does so only for messages over 2 KB, queued copies included (a grant, not the
+// small messages around it), anything
 // else (or no file) leaves the link as it is. While the link is down:
 //   - isReachable reads NO, and the delegate hears sessionReachabilityDidChange;
 //   - sendMessage and sendMessageData fail at once with "not reachable";
@@ -32,6 +34,8 @@ static NSString *controlPath;
 static NSString *outbox, *inbox, *filesDir;   // the queued channels' folders
 static BOOL linkDown;
 static double latency;                      // "slow N": seconds each incoming live message waits
+static BOOL largeOnly;                      // "slow N large": only messages over largeBytes wait
+static const NSUInteger largeBytes = 2048;
 static dispatch_queue_t slowQueue;          // where they wait, in arrival order
 static dispatch_queue_t heldQueue;          // the held deliveries, in arrival order
 static NSMutableArray<dispatch_block_t> *held;
@@ -41,14 +45,31 @@ static BOOL readDown(void) {
     NSString *s = [[NSString stringWithContentsOfFile:controlPath encoding:NSUTF8StringEncoding error:nil]
                    stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceAndNewlineCharacterSet];
     double slow = [s hasPrefix:@"slow "] ? [[s substringFromIndex:5] doubleValue] : 0;
-    if (slow != latency) NSLog(@"SimLink: live messages %@", slow > 0 ? [NSString stringWithFormat:@"%.1f s late", slow] : @"on time");
+    BOOL large = slow > 0 && [s hasSuffix:@" large"];
+    if (slow != latency || large != largeOnly) NSLog(@"SimLink: %@ %@", large ? @"messages over 2 KB" : @"live messages",
+                                                    slow > 0 ? [NSString stringWithFormat:@"%.1f s late", slow] : @"on time");
     latency = slow;
+    largeOnly = large;
     return [s isEqualToString:@"down"];
 }
 
+// What a message weighs: the data it carries (a loan message is one Data value).
+static NSUInteger weight(id message) {
+    if ([message isKindOfClass:NSData.class]) return [(NSData *)message length];
+    __block NSUInteger n = 0;
+    if ([message isKindOfClass:NSDictionary.class]) {
+        [(NSDictionary *)message enumerateKeysAndObjectsUsingBlock:^(id k, id v, BOOL *stop) {
+            if ([v isKindOfClass:NSData.class]) n += [(NSData *)v length];
+        }];
+    }
+    return n;
+}
+
+static BOOL waits(id message) { return latency > 0 && (!largeOnly || weight(message) > largeBytes); }
+
 // A live message, now or after the link's latency.
-static void arrive(dispatch_block_t block) {
-    if (latency <= 0) { block(); return; }
+static void arrive(id message, dispatch_block_t block) {
+    if (!waits(message)) { block(); return; }
     double wait = latency;
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(wait * NSEC_PER_SEC)), slowQueue, ^{
         if (linkDown) { NSLog(@"SimLink: late live message dropped, link down"); return; }
@@ -112,7 +133,7 @@ static void deliver(dispatch_block_t block) {
 
 static void sl_message(id self, SEL _cmd, WCSession *session, NSDictionary *message) {
     if (linkDown) { NSLog(@"SimLink: live message dropped, link down"); return; }
-    arrive(^{ ((void (*)(id, SEL, id, id))appMessage)(self, _cmd, session, message); });
+    arrive(message, ^{ ((void (*)(id, SEL, id, id))appMessage)(self, _cmd, session, message); });
 }
 
 // A reply handler can be a block on the caller's stack: copied before it waits out the latency,
@@ -120,18 +141,18 @@ static void sl_message(id self, SEL _cmd, WCSession *session, NSDictionary *mess
 static void sl_messageReply(id self, SEL _cmd, WCSession *session, NSDictionary *message, id reply) {
     if (linkDown) { NSLog(@"SimLink: live message dropped, link down"); return; }
     id replyBlock = [reply copy];
-    arrive(^{ ((void (*)(id, SEL, id, id, id))appMessageReply)(self, _cmd, session, message, replyBlock); });
+    arrive(message, ^{ ((void (*)(id, SEL, id, id, id))appMessageReply)(self, _cmd, session, message, replyBlock); });
 }
 
 static void sl_data(id self, SEL _cmd, WCSession *session, NSData *data) {
     if (linkDown) { NSLog(@"SimLink: live message dropped, link down"); return; }
-    arrive(^{ ((void (*)(id, SEL, id, id))appData)(self, _cmd, session, data); });
+    arrive(data, ^{ ((void (*)(id, SEL, id, id))appData)(self, _cmd, session, data); });
 }
 
 static void sl_dataReply(id self, SEL _cmd, WCSession *session, NSData *data, id reply) {
     if (linkDown) { NSLog(@"SimLink: live message dropped, link down"); return; }
     id replyBlock = [reply copy];
-    arrive(^{ ((void (*)(id, SEL, id, id, id))appDataReply)(self, _cmd, session, data, replyBlock); });
+    arrive(data, ^{ ((void (*)(id, SEL, id, id, id))appDataReply)(self, _cmd, session, data, replyBlock); });
 }
 
 static void sl_userInfo(id self, SEL _cmd, WCSession *session, NSDictionary *userInfo) {
@@ -296,6 +317,12 @@ static void drainInbox(void) {
     for (NSString *name in names) {
         if ([name hasPrefix:@"."]) continue;
         NSString *path = [inbox stringByAppendingPathComponent:name];
+        // "slow N large": a large queued copy waits out the latency too, and what follows it waits behind it.
+        if (largeOnly && latency > 0) {
+            NSDictionary *attrs = [NSFileManager.defaultManager attributesOfItemAtPath:path error:nil];
+            NSDictionary *peek = [NSPropertyListSerialization propertyListWithData:[NSData dataWithContentsOfFile:path] options:0 format:NULL error:nil];
+            if (waits(peek[@"userInfo"]) && -[attrs.fileModificationDate timeIntervalSinceNow] < latency) break;
+        }
         NSDictionary *item = [NSPropertyListSerialization propertyListWithData:[NSData dataWithContentsOfFile:path] options:0 format:NULL error:nil];
         [NSFileManager.defaultManager removeItemAtPath:path error:nil];
         if ([item[@"kind"] isEqual:@"userInfo"] && appUserInfo) {

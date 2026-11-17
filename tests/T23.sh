@@ -70,8 +70,10 @@ say "(1) End; the loan hands back cleanly"
 e1=$(end_loan 1)
 expect_clean phone "$e1" 'hand-back check:' "(1) the hand-back's check"
 
-say "(2) Link 8 s slow each way; Start, then a 1 U watch bolus at once"
-sim link slow 8
+# Only large messages are slowed (the grant, not the request and its answer): the watch waits 6 s for
+# "request received" (since 11-12), and a whole link 8 s slow each way never gets the grant made.
+say "(2) Large messages 8 s slow each way; Start, then a 1 U watch bolus at once"
+sim link slow 8 large
 watch_start_shown
 d2=$(pod_delivered)
 s2=$(now)

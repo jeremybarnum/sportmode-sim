@@ -63,7 +63,16 @@ say "before that, a refusal to let go: ${refused:-none (the resync came first)}"
 [ -n "$released" ] && pass "the phone's driver let go of the pod" "$released" \
 	|| fail "the phone's driver let go of the pod" "no release in the phone's system log since $back"
 expect phone "$back" 'adopting the loan the watch started' "the phone adopted the loan"
-expect_residual phone "$back" 'until the watch took over' 0.30 0.70 "the phone's own check books the bolus up to the watch's takeover"
+# The lost bolus is counted once, by whichever device closes the window that holds it: the watch's offline
+# start books what the phone's last reading cannot explain, or the phone's check up to the watch's takeover
+# finds it (when the phone read the pod before standing aside, its own window moves and that check is skipped).
+wl=$(lines watch "$start" 'booked .* the records cannot explain' | tail -1)
+wu=$(echo "$wl" | awk '{ if (match($0, /booked [0-9.]+ U/)) print substr($0, RSTART + 7, RLENGTH - 9) + 0 }')
+if [ -n "$wu" ] && awk -v u="$wu" 'BEGIN { exit !(u >= 0.30 && u <= 0.70) }'; then
+	pass "the bolus is counted: the watch booked it at its offline start ($wu U)" "$wl"
+else
+	expect_residual phone "$back" 'until the watch took over' 0.30 0.70 "the bolus is counted: the phone's own check up to the watch's takeover"
+fi
 expect_clean phone "$end" 'hand-back check:' "hand-back's check"
 expect_none phone "$b" 'Overstated' "no false overstated warning"
 verdict
