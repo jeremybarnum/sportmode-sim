@@ -29,7 +29,7 @@ sensor), **watch off** = `sim.sh watch off` (the watch shut down; `watch on` boo
 | T16 | The phone asks a silent watch, tells the looper once and keeps the loan; a tap takes the pod back | safety, long | Silent watch, Take Back | Runs with the phone app in front: a background app is not woken by simulated Bluetooth |
 | T17 | A watch back from off asks before looping; the phone stands it aside | safety | resume, Take Back | Runs |
 | T18 | End on the watch with the phone away: refused on screen after 10 s, loan continues | validation | End with the phone away | Runs |
-| T19 | A revived watch's claim to a loan older than the phone's takeover is refused | safety | resume, offline Start | Runs |
+| T19 | The watch back after the phone took the pod back (rows 28, 18, 19): the phone stayed off the pod on silence, the tap took it back, and the revived watch's claim to a loan started before the tap is refused; the watch stands aside before any dose | safety | resume, offline Start | Runs |
 | T22 | Start, End and Take Back during a bolus: refused until it ends | safety | Start, End, Take Back (nobody takes the pod mid-bolus) | Runs |
 | T23 | A watch bolus that reaches the phone after it handed the pod over: refused and not booked | safety | insulin booking | Runs |
 | T24 | A lost answer, then a start without the phone: back, the phone stands aside and reads the pod at once; its pod driver drops the unconfirmed command at the resync and lets go within a minute; the bolus is booked once | safety | insulin booking, standing aside | Runs with a pod simulator that resyncs (LoopKit/pod#25, POD_SIM); not in a tier until the pinned one does |
