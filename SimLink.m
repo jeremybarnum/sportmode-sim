@@ -318,12 +318,16 @@ static void drainInbox(void) {
         if ([name hasPrefix:@"."]) continue;
         NSString *path = [inbox stringByAppendingPathComponent:name];
         // "slow N large": a large queued copy waits out the latency too, and what follows it waits behind it.
+        // Gone or unreadable since the listing (a reset clears the queue): nil data makes the parser
+        // throw, not fail, so it is skipped.
+        NSData *data = [NSData dataWithContentsOfFile:path];
+        if (!data) continue;
         if (largeOnly && latency > 0) {
             NSDictionary *attrs = [NSFileManager.defaultManager attributesOfItemAtPath:path error:nil];
-            NSDictionary *peek = [NSPropertyListSerialization propertyListWithData:[NSData dataWithContentsOfFile:path] options:0 format:NULL error:nil];
+            NSDictionary *peek = [NSPropertyListSerialization propertyListWithData:data options:0 format:NULL error:nil];
             if (waits(peek[@"userInfo"]) && -[attrs.fileModificationDate timeIntervalSinceNow] < latency) break;
         }
-        NSDictionary *item = [NSPropertyListSerialization propertyListWithData:[NSData dataWithContentsOfFile:path] options:0 format:NULL error:nil];
+        NSDictionary *item = [NSPropertyListSerialization propertyListWithData:data options:0 format:NULL error:nil];
         [NSFileManager.defaultManager removeItemAtPath:path error:nil];
         if ([item[@"kind"] isEqual:@"userInfo"] && appUserInfo) {
             ((void (*)(id, SEL, id, id))appUserInfo)(delegate, @selector(session:didReceiveUserInfo:), session, item[@"userInfo"]);
