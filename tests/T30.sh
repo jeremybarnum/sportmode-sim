@@ -39,5 +39,6 @@ expect phone "$pb" 'found another controller using the pod' "the phone heard the
 expect phone "$pb" 'standing aside for a loan the watch started without this phone' "the phone stood aside"
 expect_between_none phone "$pb" '.' 'standing aside for a loan the watch started' 'temp basal enacted|enacting|MANUAL BOLUS|automatic bolus' "the phone sent the pod nothing before standing aside"
 expect_none watch "$pb" 'phone took the pod back|stood aside' "the watch kept the pod"
+expect_none phone "$pb" 'standing aside for a loan only the pod shows' "the watch's answer, not silence, made the phone stand aside"
 "$SIM" glucose 115 >/dev/null
 verdict
