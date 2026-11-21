@@ -199,12 +199,20 @@ tsleep() { sleep $(awk -v s="$1" -v n="$SCALE" 'BEGIN { v = int(s / n); print (v
 sc() { awk -v s="$1" -v n="$SCALE" 'BEGIN { printf "%d", s / n }'; }
 
 # Wait for the sensor simulator's next reading(s) after a time (a reading paces both apps' loops).
+# The sensor's log runs for the sensor simulator's life, days, with times of day only: read from
+# where it stood when the test began, or a line from an earlier day passes for a new one.
+G7_FROM=$(($(wc -l <"$RUN/g7.log" 2>/dev/null || echo 0) + 1))
+g7_readings() { # since
+	# A sensor simulator restarted since (a reset can) began a new log: read it all.
+	[ "$(wc -l <"$RUN/g7.log")" -lt "$((G7_FROM - 1))" ] && G7_FROM=1
+	tail -n +"$G7_FROM" "$RUN/g7.log" | awk -v t="$1" '$1 > t && /reading [0-9]+:/'
+}
 wait_reading() { # since seconds [count]
 	local _end _n
 	_end=$(($(date +%s) + $2))
 	while :; do
-		_n=$(awk -v t="$1" '$1 > t && /reading [0-9]+:/' "$RUN/g7.log" | wc -l | tr -d ' ')
-		[ "$_n" -ge "${3:-1}" ] && { say "sensor reading $(awk -v t="$1" '$1 > t && /reading [0-9]+:/' "$RUN/g7.log" | tail -1 | cut -c1-60)"; return 0; }
+		_n=$(g7_readings "$1" | wc -l | tr -d ' ')
+		[ "$_n" -ge "${3:-1}" ] && { say "sensor reading $(g7_readings "$1" | tail -1 | cut -c1-60)"; return 0; }
 		[ "$(date +%s)" -ge "$_end" ] && abort "no sensor reading within $2 s"
 		sleep 3
 	done
