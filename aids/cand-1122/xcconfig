@@ -1,0 +1,4 @@
+# Sport Mode on, the time scale's flag, and the watch signed for its workout session and
+# time-sensitive notifications.
+conditions: SPORT_MODE_ENABLED SIMULATED_TIME_SCALE_ENABLED
+LOOP_WATCH_ENTITLEMENTS = $(SRCROOT)/WatchApp Extension/SportMode.entitlements
