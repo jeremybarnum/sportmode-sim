@@ -1,8 +1,8 @@
-From 74f542fbcc0b8f1d7ffb5521468c49bd3c5a5bd3 Mon Sep 17 00:00:00 2001
+From 7048a438377c0964dc7b7e8ae734651a0bfee326 Mon Sep 17 00:00:00 2001
 From: Simulator testing <sim-testing@localhost>
-Date: Tue, 3 Nov 2026 12:35:06 -0500
-Subject: [PATCH] Bench layer for the harness: log files, the watch log to
- the phone, the debug page
+Date: Sun, 22 Nov 2026 09:03:20 -0500
+Subject: [PATCH] Bench layer for the harness: log files, the watch log to the
+ phone, the debug page
 
 ---
  Loop.xcodeproj/project.pbxproj                |  12 +
@@ -22,7 +22,7 @@ Subject: [PATCH] Bench layer for the harness: log files, the watch log to
  create mode 100644 WatchApp Extension/StockLoop/RuntimeStateLog.swift
 
 diff --git a/Loop.xcodeproj/project.pbxproj b/Loop.xcodeproj/project.pbxproj
-index 114b396f..d25cfb37 100644
+index 6f76a621..d9e448f7 100644
 --- a/Loop.xcodeproj/project.pbxproj
 +++ b/Loop.xcodeproj/project.pbxproj
 @@ -8,6 +8,9 @@
@@ -35,7 +35,7 @@ index 114b396f..d25cfb37 100644
  		52CB9A826E3B3DFC4E483084 /* AlgorithmBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36421A4B9676EF68CDDC4ECD /* AlgorithmBridge.swift */; };
  		01F99A06F17502CC60E9535C /* AlgorithmBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36421A4B9676EF68CDDC4ECD /* AlgorithmBridge.swift */; };
  		9950DD7109C8F6C854AAAB48 /* LoopKitTypeAliases.swift in Sources */ = {isa = PBXBuildFile; fileRef = 35FAEFD820F50BFF211AC6D9 /* LoopKitTypeAliases.swift */; };
-@@ -1063,6 +1066,9 @@
+@@ -1066,6 +1069,9 @@
  /* End PBXCopyFilesBuildPhase section */
  
  /* Begin PBXFileReference section */
@@ -45,7 +45,7 @@ index 114b396f..d25cfb37 100644
  		F8760AF31E3C43F6AFBA1BE7 /* G7SensorKit.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; path = G7SensorKit.framework; sourceTree = BUILT_PRODUCTS_DIR; };
  		00A28F30399B460CABF4EDD2 /* SettingsProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsProvider.swift; sourceTree = "<group>"; };
  		891F7590AA92FC7B832160F3 /* LoanRemoteUploadsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoanRemoteUploadsTests.swift; sourceTree = "<group>"; };
-@@ -2924,6 +2930,9 @@
+@@ -2932,6 +2938,9 @@
  				28ADB7DA9E28C018C4707191 /* PodLoanWatchController+Handback.swift */,
  				A113A845D5DDEEDA9A76D9AD /* PodLoanWatchController+Debug.swift */,
  				4D15E99F644E4E50A306CA01 /* StockLoopSession.swift */,
@@ -55,7 +55,7 @@ index 114b396f..d25cfb37 100644
  				533D4A039573750D44A23B29 /* LoanPushSender.swift */,
  				B998F036B1AFE137CE755FB6 /* LoanRemoteUploads.swift */,
  				F23412C23E024F9A9399C435 /* StockLoopStack.swift */,
-@@ -4605,6 +4614,9 @@
+@@ -4616,6 +4625,9 @@
  				4826A7044A3346FBA450497A /* PodLoanWatchController+Handback.swift in Sources */,
  				2497B7839C12276E55320CFF /* PodLoanWatchController+Debug.swift in Sources */,
  				BC5C47547CCB49F9BA618108 /* StockLoopSession.swift in Sources */,
@@ -673,10 +673,10 @@ index 0f81cdec..66a3e2bd 100644
  
      private static let lastLock = NSLock()
 diff --git a/WatchApp Extension/StockLoop/StockLoopSession.swift b/WatchApp Extension/StockLoop/StockLoopSession.swift
-index a4a79250..c55267b9 100644
+index f47aa60b..2fec8899 100644
 --- a/WatchApp Extension/StockLoop/StockLoopSession.swift	
 +++ b/WatchApp Extension/StockLoop/StockLoopSession.swift	
-@@ -122,7 +122,14 @@ final class StockLoopSession {
+@@ -134,7 +134,14 @@ final class StockLoopSession {
  
                  // Uploads, when the Start grant carried service configurations.
                  LoanRemoteUploads.shared.begin(loopManager: self.stack.loopManager)
@@ -691,7 +691,7 @@ index a4a79250..c55267b9 100644
                  // Normally already done by teardownPump.
                  LoanRemoteUploads.shared.end()
                  LoopStallWatchdog.disarm()
-@@ -141,6 +148,34 @@ final class StockLoopSession {
+@@ -153,6 +160,34 @@ final class StockLoopSession {
          SportLog.event("session", "Sport Mode ready, build \(BuildDetails.default.codeIdentity)")
      }
  
@@ -727,12 +727,12 @@ index a4a79250..c55267b9 100644
      nonisolated func handleIncomingIfLoanMessage(_ userInfo: [String: Any]) -> Bool {
          guard LoanProtocol.isLoanTransport(userInfo) else { return false }
 diff --git a/WatchApp Extension/StockLoop/WatchLoopManager+Glucose.swift b/WatchApp Extension/StockLoop/WatchLoopManager+Glucose.swift
-index 3172f7a7..7af24698 100644
+index 75500b45..cf6af9a5 100644
 --- a/WatchApp Extension/StockLoop/WatchLoopManager+Glucose.swift	
 +++ b/WatchApp Extension/StockLoop/WatchLoopManager+Glucose.swift	
-@@ -34,6 +34,18 @@ extension WatchLoopManager {
-             log.default("Triggering loop from new CGM data at %{public}@", String(describing: now))
-             checkPumpDataAndLoop()
+@@ -38,6 +38,18 @@ extension WatchLoopManager {
+             // A new reading too soon after the last cycle: the display still shows it.
+             updateDisplayStateForChange()
          }
 +
 +        Self.queueLogTransferThrottled()
@@ -750,10 +750,10 @@ index 3172f7a7..7af24698 100644
  
      /// Stock `DeviceDataManager.receivedUnreliableCGMReading`: with the sensor's data unreliable, a
 diff --git a/WatchApp Extension/StockLoop/WatchLoopManager.swift b/WatchApp Extension/StockLoop/WatchLoopManager.swift
-index ea965d9b..f9a135f7 100644
+index 49f1c610..7b554cb3 100644
 --- a/WatchApp Extension/StockLoop/WatchLoopManager.swift	
 +++ b/WatchApp Extension/StockLoop/WatchLoopManager.swift	
-@@ -128,6 +128,9 @@ final class WatchLoopManager {
+@@ -133,6 +133,9 @@ final class WatchLoopManager {
      /// Fired when the wrist opens the loop (closed to open), where stock ends a pre-meal preset.
      var onLoopOpened: (() -> Void)?
  
