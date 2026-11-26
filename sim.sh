@@ -23,6 +23,8 @@
 #   sim.sh link slow <s>|normal  each live phone–watch message arrives <s> late, or on time again
 #   sim.sh link down|up     the phone–watch link alone cut, each still in reach of the pod and sensor
 #   sim.sh glucose <mg/dL>|walk <mg/dL>|sine <mg/dL> <amplitude>  what the sensor reads from now on
+#   sim.sh bond off|refuse|ask  a new display's Bluetooth pairing with the sensor: done at once, refused by its system, or held for Pair
+#   sim.sh bond pair|forget phone|watch  Pair tapped on that display's prompt; the display forgets the sensor and must pair again
 #   sim.sh phone radio-off|radio-on  Bluetooth off on the phone (it reads powered off), the watch link up
 #   sim.sh watch off|on     shut the watch Simulator down; boot it and launch the watch app
 #   sim.sh watch lose-connect  the watch's pending sensor connect dropped, the watch told nothing
@@ -40,7 +42,9 @@
 # sockets, ports and files: see rig.sh), CONNECT_DELAY=<duration> (at `start`: how long each Bluetooth connect
 # takes, as over a radio; 1500ms by default, 0 for at once), DEXCOM_APP=1 (at `start`:
 # the simulated G7 also plays the Dexcom app, for a build whose G7 code does not authenticate itself
-# and rides the Dexcom app's link, as stock G7SensorKit does).
+# and rides the Dexcom app's link, as stock G7SensorKit does), BOND=off|refuse|ask (at `start`: as
+# `sim.sh bond`; off without it. A real sensor gives a display no glucose until its system has paired
+# with it, which needs the app in front and a person's tap: g7sim's REALITY_GAPS.md, gaps 1 and 1a).
 set -eu
 
 here=$(cd "$(dirname "$0")" && pwd)
@@ -51,7 +55,7 @@ sims_file=$here/.sims${RIG:+-$RIG}
 
 # The simulators, at the commits this harness was tested with (LoopKit/g7sim and LoopKit/pod with
 # the changes proposed upstream; g7sim builds ImpossiBLE with its own patches).
-G7SIM=https://github.com/jeremybarnum/g7sim; G7SIM_COMMIT=db5ce7c
+G7SIM=https://github.com/jeremybarnum/g7sim; G7SIM_COMMIT=ec3c6c1
 POD=https://github.com/jeremybarnum/pod;     POD_COMMIT=d6abe77
 
 [ -f "$sims_file" ] && . "$sims_file"
@@ -193,7 +197,7 @@ start() {
 	# In a subshell for its working directory, which exec hands to the simulator, so nothing is left
 	# holding the terminal.
 	started g7-sim || { keep_log g7; (cd "$run" && exec nohup "$out/g7-sim" -transport impossible -socket $G7_SOCK -api $G7_API \
-		$interval ${DEXCOM_APP:+-dexcom-app} ${fresh:+-fresh -code 4321 -serial 7810293746} ${sensor_age:+-age ${sensor_age}s}) >"$run/g7.log" 2>&1 </dev/null & }
+		$interval ${DEXCOM_APP:+-dexcom-app} ${BOND:+-bond $BOND} ${fresh:+-fresh -code 4321 -serial 7810293746} ${sensor_age:+-age ${sensor_age}s}) >"$run/g7.log" 2>&1 </dev/null & }
 	sleep 1
 	# The mux refuses the socket if another provider (ImpossiBLE's menu bar app?) holds it; its log says.
 	# A radio takes time to bring a link up; at once, an app that launches beside its pod connects
@@ -429,5 +433,17 @@ glucose)
 	*) echo "glucose <mg/dL>|walk <mg/dL>|sine <mg/dL> <amplitude>" >&2; exit 2 ;;
 	esac
 	curl -s -m 3 -X POST "localhost${G7_API}/glucose" -d "$body" >/dev/null && echo "glucose: $body" ;;
-*) sed -n 2,27p "$0" | sed 's/^# \{0,1\}//'; exit 2 ;;
+bond)
+	# The sensor's display types: the phone 2, the watch 3.
+	case "${3:-}" in phone) type=2 ;; watch) type=3 ;; *) type= ;; esac
+	case "${2:-}" in
+	off|refuse|ask) body="{\"mode\":\"$2\"}" ;;
+	pair) [ -n "$type" ] && body="{\"accept\":$type}" ;;
+	forget) [ -n "$type" ] && body="{\"forget\":$type}" ;;
+	esac
+	[ -n "${body:-}" ] || { echo "bond off|refuse|ask, or bond pair|forget phone|watch" >&2; exit 2; }
+	# The simulator answers a refusal (no prompt showing, no key held) in words, with an error status.
+	r=$(curl -s -m 3 --fail-with-body -X POST "localhost${G7_API}/bond" -d "$body") && echo "bond: $body" ||
+		{ echo "bond: ${r:-no answer from the sensor simulator}" >&2; exit 1; } ;;
+*) sed -n 2,29p "$0" | sed 's/^# \{0,1\}//'; exit 2 ;;
 esac
