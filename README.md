@@ -157,6 +157,20 @@ answer waits and bolus delivery, which are real. The scale needs a Loop built fr
 scale for a sensor's whole life: restarting the sensor simulator at another interval re-indexes
 its readings.
 
+## After a new sensor
+
+`start -fresh` makes a new sensor with the same serial, so the same name (DXCMzi) and a new activation
+date. The apps do not notice by themselves. The phone keeps the old session's activation date: it shows
+"Pair New Sensor" once that date makes the sensor expired, and its glucose store drops every new reading
+whose identifier (activation date, name, sensor time) an old-session reading already has. Seen
+2026-11-27: the sensor was renewed on 11-26, the phone stored no glucose from 11-26 15:46, and T16 failed
+because a phone that does not see the sensor never asks a silent watch. The log line is
+"Skipping adding glucose sample due to existing cached sync identifier" at a reading's first delivery.
+
+After `-fresh`, pair the sensor again on the phone (the CGM status, Pair New Sensor, code 4321, as in
+Setup) and wait for the watch to follow it. A real new G7 has a new name, so this is the rig's problem
+only.
+
 ## Two rigs at once
 
 Rigs run side by side when they are in different slots: `SLOT=1` in a second rig's `.sims-<rig>`
