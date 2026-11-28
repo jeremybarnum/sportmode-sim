@@ -14,6 +14,10 @@ start_loan "$start"
 wait_for watch "$start" 'cycle computed,' 400
 
 say "Force-quit and reopen the watch app"
+# The mark is to the second: taken in the same second as the cycle just waited for, that cycle's
+# insulin check passes for the one after the restart, and End is tapped while the watch still asks
+# the phone. A second later, the mark is past it.
+sleep 1
 q=$(now)
 sim quit watch
 sleep 3
